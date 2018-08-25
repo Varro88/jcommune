@@ -22,14 +22,32 @@ var REQUEST_ENTITY_TOO_LARGE = 413;
 
 
 $(function () {
+    $(this).find('.management-element').hide();
     $("#cmpName").on('click', showForumConfigurationDialog);
     $("#cmpDescription").on('click', showForumConfigurationDialog);
     $("#forumLogo").on('click', showForumConfigurationDialog);
     $("#userDefinedCopyright").on('click', editCopyright);
-
     $("[id^=branchLabel]").on('click', showBranchEditDialog);
     $("[id^=newBranch]").on('click', showNewBranchDialog);
-    $("[id^=newGroup]").on('click', showGroupCreateDialog);
+    $("[id^=newGroup], .edit-group").on('click', showGroupManagementDialog);
+    $("[id^=addUsersInGroup]").on('click', showSearchUsersDialog);
+    $(".delete-group").on('click', showDeleteGroupDialog);
+    $("#addSpamRuleBtn, .edit-spam-rule-btn").on('click', showSpamManagementDialog);
+    $(".delete-spam-rule-btn").on('click', showDeleteSpamRuleDialog);
+    $("[id^=status]").on('change', sendChangeSpamRuleStatusRequest);
+    $("[id^=group-], [id^=spam-rule-]").hover(
+        function () {
+            $(this).find('.management-element').show()
+        },
+        function () {
+            $(this).find('.management-element').hide()
+        }
+    );
+    $('.management-element').keypress(function (e) {
+        if(isEnterKeyPressed(e)){
+            this.click();
+        }
+    });
 });
 
 /**
@@ -411,7 +429,47 @@ function createIconUploader() {
         }
     );
 }
+function showDeleteGroupDialog(event) {
+    event.preventDefault();
+    var groupRow = $(this).closest('tr');
+    var groupId = groupRow.attr("data-group-id");
+    var footerContent = ' \
+            <button id="delete-group-cancel" class="btn">' + $labelCancel + '</button> \
+            <button id="delete-group-ok" class="btn btn-primary">' + $labelOk + '</button>';
 
+    jDialog.createDialog({
+        type: jDialog.confirmType,
+        title: $labelDelete,
+        bodyMessage: $deleteGroupDialogMessage,
+        footerContent: footerContent,
+        tabNavigation: ['#delete-group-ok', '#delete-group-cancel', 'button.close'],
+        handlers: {
+            '#delete-group-ok': {'click': sendDeleteGroupRequest},
+            '#delete-group-cancel': {'static':'close'}
+        }
+    });
+    $('#delete-group-ok').focus();
+
+    function sendDeleteGroupRequest(event) {
+        event.preventDefault();
+        $.ajax({
+            url: $root + '/group/' + groupId,
+            type: 'DELETE',
+            async: false,
+            success: function (response) {
+                if (response.status === 'SUCCESS') {
+                    location.reload();
+                }
+            },
+            error: function () {
+                jDialog.createDialog({
+                    type: jDialog.alertType,
+                    bodyMessage: $labelError500Detail
+                });
+            }
+        });
+    }
+}
 /*
  Adds handler for remove image button
  */
@@ -432,7 +490,7 @@ function addRestoreDefaultImageHandler(buttonId, defaultImageUrl, onSuccess) {
             });
             jDialog.closeDialog();
         };
-        
+
         var cancel = function () {
             createAdministrationDialog();
             return false;
@@ -558,13 +616,22 @@ function sendForumConfiguration(e) {
 };
 
 /**
- * Show dialog for create group.
- * 
+ * Show dialog for create or edit group.
+ *
  * @param event
  */
-function showGroupCreateDialog(event) {
+function showGroupManagementDialog(event) {
     event.preventDefault();
+    // Create a new group or edit an existing?
+    var editMode = this.className.indexOf("edit-group") >= 0;
 
+    if (editMode){
+        // find row with group and extract all data that we need.
+        var groupRow = $(this).closest('tr');
+        var groupId = groupRow.attr('data-group-id');
+        var groupName = groupRow.attr('data-group-name');
+        var groupDescription = groupRow.attr('data-group-description');
+    }
     var bodyContent =
         Utils.createFormElement($labelGroupPlaceholderName, 'groupName', 'text', 'first dialog-input') +
         Utils.createFormElement($labelGroupPlaceholderDescription, 'groupDescription', 'text', 'dialog-input') +
@@ -576,23 +643,27 @@ function showGroupCreateDialog(event) {
 
     jDialog.createDialog({
         dialogId: 'groupCreateDialog',
-        title: $labelGroupPopUpTitle,
+        title: editMode ? $labelGroupEditTitle : $labelGroupCreateTitle,
         bodyContent: bodyContent,
         footerContent: footerContent,
         maxWidth: 350,
         maxHeight: 500,
         firstFocus: true,
         tabNavigation: ['#groupName', '#groupDescription',
-            '#saveGroupButton', '#cancelGroupButton'],
+            '#saveGroupButton', '#cancelGroupButton', 'button.close'],
         handlers: {
             '#saveGroupButton': {'click': sendNewGroup},
             '#cancelGroupButton': {'static': 'close'}
         }
     });
 
+    if (editMode) fillDialogInputFields([
+        {id: '#groupName', value: groupName},
+        {id: '#groupDescription', value: groupDescription}]);
+
     /**
-     * Handles submit request from groupCreateDialog by sending POST request, with params
-     * containing group name and description.
+     * Handles submit request from groupManagementDialog by sending POST or PUT request, with params
+     * containing group information.
      * 
      * @param event
      */
@@ -600,14 +671,15 @@ function showGroupCreateDialog(event) {
         event.preventDefault();
 
         var groupInformation = {};
+        groupInformation.id = groupId;
         groupInformation.name = jDialog.dialog.find('#groupName').val();
         groupInformation.description = jDialog.dialog.find('#groupDescription').val();
 
         jDialog.dialog.find('*').attr('disabled', true);
 
         $.ajax({
-            url: $root + '/group/new',
-            type: 'POST',
+            url: $root + '/group/' + (editMode ? groupId : ''),
+            type: editMode ? 'PUT' : 'POST',
             contentType: 'application/json',
             async: false,
             data: JSON.stringify(groupInformation),
@@ -633,5 +705,271 @@ function showGroupCreateDialog(event) {
                 });
             }
         });
+    }
+}
+
+function showSpamManagementDialog(event) {
+    event.preventDefault();
+    var spamRule = {
+        id: '',
+        regex: '',
+        description: '',
+        enabled: ''
+    };
+    var editMode = this.className.indexOf("edit-spam-rule-btn") >= 0;
+
+    var bodyContent =
+        Utils.createFormElement($spamProtectionRegexPlaceholder, 'spamRegex', 'text', 'first dialog-input') +
+        Utils.createFormElement($spamProtectionDescriptionPlaceholder, 'spamDescription', 'text', 'dialog-input') +
+        '<div class="clearfix"/>';
+
+    var footerContent = ' \
+          <button id="cancelSpamRuleButton" class="btn">' + $labelCancel + '</button> \
+          <button id="saveSpamRuleButton" class="btn btn-primary">' + $labelSave + '</button>';
+
+    jDialog.createDialog({
+        dialogId: 'spamProtectionDialog',
+        title: editMode ? $labelEditSpamRule : $labelNewSpamRule,
+        bodyContent: bodyContent,
+        footerContent: footerContent,
+        maxWidth: 350,
+        maxHeight: 500,
+        firstFocus: true,
+        tabNavigation: ['#spamRegex', '#spamDescription',
+            '#saveSpamRuleButton', '#cancelSpamRuleButton', 'button.close'],
+        handlers: {
+            '#saveSpamRuleButton': {'click': saveOrUpdateSpamRule},
+            '#cancelSpamRuleButton': {'static': 'close'}
+        }
+    });
+
+    if (editMode) {
+        var row = $(this).closest('tr');
+        spamRule = parseSpamRuleDataFrom(row);
+        fillDialogInputFields([
+            {id: '#spamRegex', value: spamRule.regex},
+            {id: '#spamDescription', value: spamRule.description}
+        ]);
+    }
+
+    function saveOrUpdateSpamRule(event) {
+        event.preventDefault();
+        spamRule.regex = jDialog.dialog.find('#spamRegex').val();
+        spamRule.description = jDialog.dialog.find('#spamDescription').val();
+        if (!editMode) spamRule.enabled = true;
+
+        $.ajax({
+            url: $root + '/api/spam-rules/' + (editMode ? spamRule.id : ''),
+            type: editMode ? 'PUT' : 'POST',
+            contentType: 'application/json',
+            async: false,
+            data: JSON.stringify(spamRule),
+            success: successHandler,
+            statusCode: {403: showAccessDeniedAlert}
+        });
+
+        function successHandler(response) {
+            if (response.status === 'FAIL' && response.result instanceof Array) {
+                jDialog.prepareDialog(jDialog.dialog);
+                jDialog.showErrors(jDialog.dialog, response.result, 'spam', '');
+            } else {
+                location.reload();
+            }
+        }
+    }
+}
+
+function showAccessDeniedAlert() {
+    jDialog.createDialog({
+        type: jDialog.alertType,
+        bodyMessage: $labelAccessDeniedMessage
+    });
+}
+
+function fillDialogInputFields(elements) {
+    elements.forEach(function (element) {
+        jDialog.dialog.find(element.id).val(element.value);
+    });
+}
+
+function showDeleteSpamRuleDialog(event) {
+    event.preventDefault();
+    var spamRuleId = $(this).closest('tr').attr('data-rule-id');
+    var footerContent = ' \
+            <button id="delete-spam-rule-cancel" class="btn">' + $labelCancel + '</button> \
+            <button id="delete-spam-rule-ok" class="btn btn-primary">' + $labelOk + '</button>';
+
+    jDialog.createDialog({
+        type: jDialog.confirmType,
+        title: $labelDelete,
+        bodyMessage: $labelDeleteSpamRule,
+        footerContent: footerContent,
+        tabNavigation: ['#delete-spam-rule-ok', '#delete-spam-rule-cancel', 'button.close'],
+        handlers: {
+            '#delete-spam-rule-ok': {'click': sendDeleteSpamRuleRequest},
+            '#delete-spam-rule-cancel': {'static': 'close'}
+        }
+    });
+    $('#delete-spam-rule-ok').focus();
+
+    function sendDeleteSpamRuleRequest(event) {
+        event.preventDefault();
+        $.ajax({
+            url: $root + '/api/spam-rules/' + spamRuleId,
+            type: 'DELETE',
+            async: false,
+            statusCode: {403: showAccessDeniedAlert},
+            success: function (response) {
+                if (response.status === 'SUCCESS') {
+                    $('#spam-rule-' + spamRuleId).remove();
+                    jDialog.closeDialog();
+                }
+            }
+        });
+    }
+}
+function sendChangeSpamRuleStatusRequest(event) {
+    event.preventDefault();
+    var checkbox = $(this);
+    var row = checkbox.closest('tr');
+    var spamRule = parseSpamRuleDataFrom(row);
+    $.ajax({
+        url: $root + '/api/spam-rules/' + spamRule.id,
+        type: 'PUT',
+        contentType: 'application/json',
+        async: false,
+        data: JSON.stringify(spamRule),
+        statusCode: {
+            403: function (result) {
+                showAccessDeniedAlert(result);
+                checkbox[0].checked = !checkbox[0].checked;
+            }
+        }
+    });
+}
+
+function parseSpamRuleDataFrom(row) {
+    var ruleId = row.attr('data-rule-id');
+    return {
+        id: ruleId,
+        regex: $("#regex-" + ruleId)[0].textContent,
+        description: $("#description-" + ruleId)[0].textContent,
+        enabled: $("#status-" + ruleId)[0].checked
+    };
+}
+
+/**
+ * Shows dialog for searching users by any part of username or email.
+ *
+ * @param event
+ */
+function showSearchUsersDialog(event) {
+    event.preventDefault();
+
+    var bodyContent = ' \
+          <div class="controls control-group search-input form-horizontal ui-widget"> \
+             <span class="icon-search"></span> \
+             <input type="text" id="searchPattern" class="form-search"/> \
+          </div>';
+
+    jDialog.createDialog({
+        dialogId: 'searchUserDialog',
+        title: $labelGroupAddUser,
+        bodyContent: bodyContent,
+        maxWidth: 400,
+        maxHeight: 500,
+        tabNavigation: ['#searchPattern', 'button.close'],
+    });
+
+    $('#searchPattern').on('keydown', function(event) {
+            if (event.keyCode === $.ui.keyCode.TAB
+                && $(this).autocomplete('instance').menu.active) {
+                event.preventDefault();
+            }
+        }).autocomplete({
+            source: function(request, response) {
+                ErrorUtils.removeErrorMessage('#searchPattern');
+                var notInGroupId = $('#addUsersInGroup').attr('data-group-id');
+                var pattern = request.term;
+                $.ajax({
+                    url: $root + '/user',
+                    type: 'GET',
+                    data: {
+                        notInGroupId: notInGroupId,
+                        pattern: pattern
+                    },
+                    success: function(serverResponse) {
+                        if (serverResponse.status === 'SUCCESS') {
+                            response($.map(serverResponse.result, function(user) {
+                                var username = user.username;
+                                return {
+                                    userId: user.id,
+                                    label: [username, user.email].join(' / '),
+                                    value: username,
+                                    email: user.email
+                                };
+                            }));
+                        } else {
+                            if (serverResponse.result instanceof Array) {
+                                jDialog.prepareDialog(jDialog.dialog);
+                                jDialog.showErrors(jDialog.dialog, serverResponse.result, 'search', '');
+                            } else {
+                                jDialog.createDialog({
+                                    type: jDialog.alertType,
+                                    bodyMessage: serverResponse.result
+                                });
+                            }
+                        }
+                    }
+                });
+            },
+            focus: function(event) {
+                event.preventDefault();
+                $('.ui-menu-item').removeClass('custom-selected-item');
+                var uiActiveMenuItemElement = $("#ui-active-menuitem");
+                uiActiveMenuItemElement.parent().addClass('custom-selected-item');
+                uiActiveMenuItemElement.removeClass('ui-corner-all');
+            },
+            select: function(event, ui) {
+                event.preventDefault();
+                this.value = '';
+                addUserInGroup(ui.item);
+            },
+            delay: 1000,
+            autoFocus: true,
+            minLength: 2
+    });
+
+    /**
+     * Sends ajax POST request to update user group
+     * and then puts user on top of users table in the current group.
+     *
+     * @param item
+     */
+    function addUserInGroup(item) {
+        event.preventDefault();
+        var currentGroupId = $('#addUsersInGroup').attr('data-group-id');
+        $.ajax({
+            url: $root + '/user/' + item.userId + '/groups/' + currentGroupId,
+            type: 'POST',
+            success: function (serverResponse) {
+                if (serverResponse.status === 'SUCCESS') {
+                    putUserOnTopOfUsersTable(item);
+                }
+            }
+        });
+
+    }
+
+    /**
+     * Puts user on top of the users table in the current group.
+     *
+     * @param item
+     */
+    function putUserOnTopOfUsersTable(item) {
+        var row = $('<tr id="' + item.userId + '">');
+        row.append($('<td>').text(item.value));
+        row.append($('<td>').text(item.email));
+        $('#groupUserListTableData').prepend(row);
     }
 }

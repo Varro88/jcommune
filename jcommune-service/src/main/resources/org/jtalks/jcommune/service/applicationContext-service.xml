@@ -137,8 +137,8 @@
   </bean>
 
   <bean id="locationService" class="org.jtalks.jcommune.service.nontransactional.LocationService">
+    <constructor-arg name="securityService" ref="securityService"/>
     <constructor-arg name="sessionRegistry" ref="sessionRegistry"/>
-    <constructor-arg name="userService" ref="userService"/>
   </bean>
 
   <bean id="abstractUserService" abstract="true">
@@ -295,10 +295,10 @@
     <constructor-arg ref="topicDao"/>
   </bean>
 
-  <bean id="securityService"
-        class="org.jtalks.common.security.SecurityService">
+  <bean id="securityService" class="org.jtalks.jcommune.service.security.SecurityService">
     <constructor-arg name="userDao" ref="userDao"/>
-    <constructor-arg ref="aclManager"/>
+    <constructor-arg name="aclManager" ref="aclManager"/>
+    <constructor-arg name="securityContextFacade" ref="securityContextFacade"/>
   </bean>
 
   <bean id="forumStatisticsService"
@@ -337,6 +337,8 @@
     <constructor-arg ref="userService"/>
   </bean>
 
+  <bean id="urlToLinkConvertPostProcessor" class="org.jtalks.jcommune.service.bb2htmlprocessors.UrlToLinkConvertPostProcessor"/>
+
   <bean id="bbCodeService" class="org.jtalks.jcommune.service.nontransactional.BBCodeService">
     <property name="preprocessors">
       <list>
@@ -348,6 +350,7 @@
     <property name="postprocessors">
       <list>
         <ref local="bbCodeReviewProcessor"/>
+        <ref local="urlToLinkConvertPostProcessor"/>
         <ref local="bbForeignLinksPostprocessor"/>
       </list>
     </property>
@@ -409,6 +412,10 @@
   <bean id="pluginService" class="org.jtalks.jcommune.service.transactional.TransactionalPluginService">
     <constructor-arg name="dao" ref="pluginConfigurationDao"/>
     <constructor-arg name="pluginLoader" ref="pluginLoader"/>
+  </bean>
+
+  <bean id="spamProtectionService" class="org.jtalks.jcommune.service.transactional.TransactionalSpamProtectionService">
+    <constructor-arg ref="spamRuleDao"/>
   </bean>
 
   <!--
@@ -490,6 +497,7 @@
     <constructor-arg index="0" ref="groupDao"/>
     <constructor-arg index="1" ref="aclManager"/>
     <constructor-arg index="2" ref="userDao"/>
+    <constructor-arg index="3" ref="securityService"/>
   </bean>
 
   <beans profile="performance">

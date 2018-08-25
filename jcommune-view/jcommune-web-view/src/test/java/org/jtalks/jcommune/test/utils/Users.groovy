@@ -14,11 +14,14 @@
  */
 package org.jtalks.jcommune.test.utils
 
+import org.jtalks.common.model.entity.Component
+import org.jtalks.common.model.entity.Group
 import org.jtalks.common.model.permissions.GeneralPermission
-import org.jtalks.common.service.security.SecurityContextHolderFacade
+import org.jtalks.common.service.security.SecurityContextFacade
 import org.jtalks.jcommune.model.dao.GroupDao
 import org.jtalks.jcommune.model.dao.UserDao
 import org.jtalks.jcommune.model.entity.JCUser
+import org.jtalks.jcommune.model.entity.UserInfo
 import org.jtalks.jcommune.plugin.api.web.dto.json.JsonResponse
 import org.jtalks.jcommune.plugin.api.web.dto.json.JsonResponseStatus
 import org.jtalks.jcommune.service.nontransactional.EncryptionService
@@ -48,7 +51,6 @@ import static org.hamcrest.MatcherAssert.assertThat
 import static org.hamcrest.Matchers.hasItem
 import static org.hamcrest.Matchers.not
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*
-
 /**
  * @author Mikhail Stryzhonok
  */
@@ -56,7 +58,7 @@ abstract class Users {
     @Autowired GroupDao groupDao
     @Autowired PermissionManager permissionManager
     @Autowired AuthenticationManager authenticationManager
-    @Autowired SecurityContextHolderFacade securityFacade
+    @Autowired SecurityContextFacade securityFacade
     @Autowired SessionAuthenticationStrategy sessionStrategy
     @Autowired EncryptionService encryptionService
     @Autowired UserDao userDao
@@ -81,18 +83,22 @@ abstract class Users {
     abstract void assertMvcResult(MvcResult result)
 
     PermissionGranter created(User user) {
-        def group = groupDao.getGroupByName(AdministrationGroup.USER.name)
+        createdWithGroup(user, AdministrationGroup.USER)
+    }
+
+    PermissionGranter createdWithGroup(User user, AdministrationGroup group) {
+        def groupByName = groupDao.getGroupByName(group.name)
         def fromDb = userDao.getByUsername(user.username)
         if (!fromDb) {
             fromDb = new JCUser(user.username, user.email, encryptionService.encryptPassword(user.password))
             fromDb.enabled = true
-            fromDb.addGroup(group)
+            fromDb.addGroup(groupByName)
             userDao.saveOrUpdate(fromDb)
             userDao.flush()
         }
         //Needed for managing permissions
         setAuthentication(new JCUser(user.username, 'sample@example.com', user.password))
-        return new PermissionGranter(permissionManager, group);
+        return new PermissionGranter(permissionManager, groupByName);
     }
 
     GroupsManager createdWithoutAccess(User user) {
@@ -106,15 +112,46 @@ abstract class Users {
         return new GroupsManager(fromDb, groupDao, userDao);
     }
 
+    def createdCountInGroupWithoutAccess(int count, String groupName) {
+        def group = groupDao.getGroupByName(groupName)
+        for(int i=0; i<count; i++) {
+            def user = new User();
+            def fromDb = new JCUser(user.username, user.email, encryptionService.encryptPassword(user.password))
+            fromDb.enabled = true
+            fromDb.addGroup(group)
+            userDao.saveOrUpdate(fromDb)
+            userDao.flush()
+        }
+    }
+
+    JCUser createUserInGroup(String username, String email, String groupname) {
+        def user = new JCUser(username, email, "12fafadGHssa6")
+        def group = groupDao.getGroupByName(groupname)
+        user.enabled = true
+        user.addGroup(group)
+        userDao.saveOrUpdate(user)
+        userDao.flush()
+        return user
+    }
+
     def createdButNotActivated(User user) {
         def toCreate = new JCUser(user.username, 'sample@example.com', encryptionService.encryptPassword(user.password))
         userDao.saveOrUpdate(toCreate)
         userDao.flush()
     }
 
+    User randomNotActivatedUser() {
+        User user = new User()
+        def toCreate = new JCUser(user.username, user.email, encryptionService.encryptPassword(user.password))
+        toCreate.enabled = false //it is not necessary, only to make sense
+        userDao.saveOrUpdate(toCreate)
+        userDao.flush()
+        return dtoFrom(toCreate)
+    }
+
     def setAuthentication(JCUser user) {
         def token = new UsernamePasswordAuthenticationToken(user.username, user.password)
-        token.details = user
+        token.details = new UserInfo(user)
         def auth = authenticationManager.authenticate(token)
         securityFacade.context.authentication = auth
         def request = new MockHttpServletRequest()
@@ -151,7 +188,7 @@ abstract class Users {
         }
 
         def auth = (context as SecurityContext).authentication
-        return auth != null && auth.authenticated && ((auth.principal as JCUser).username.equals(user.username))
+        return auth != null && auth.authenticated && (auth.principal as UserInfo).username == user.username
     }
 
     long[] fetchGroups(HttpSession session, User user) {
@@ -188,7 +225,7 @@ abstract class Users {
     }
 
     void assertUserInGroup(User user, long groupID) {
-        def userGroups = userDao.getByEmail(user.email).groups
+        def userGroups = userDao.getByUsername(user.username).groups
         def group = groupDao.get(groupID)
         assertThat(userGroups, hasItem(group))
     }
@@ -199,9 +236,31 @@ abstract class Users {
         assertThat(userGroups, not(hasItem(group)))
     }
 
-    def signInAsAdmin() {
-        def adminUser = new User()
-        created(adminUser).withPermissionOn(componentService.createForumComponent(), GeneralPermission.ADMIN)
+    HttpSession signInAsAdmin() {
+        signInAsAdmin(componentService.createForumComponent())
+    }
+
+    HttpSession signInAsAdmin(Component forum) {
+        def adminUser = User.newInstance()
+        createdWithGroup(adminUser, AdministrationGroup.ADMIN).withPermissionOn(forum, GeneralPermission.ADMIN)
         signIn(adminUser)
+    }
+
+    HttpSession signInAsRegisteredUser(Component forum) {
+        def user = User.newInstance()
+        created(user).withPermissionOn(forum, GeneralPermission.READ)
+        signIn(user)
+    }
+
+    User dtoFrom(JCUser common){
+        User dto = new User()
+        dto.uuid = common.uuid
+        dto.username = common.username
+        dto.email = common.email
+        return dto
+    }
+
+    HttpSession anonymousSession(){
+        mockMvc.perform(get("/")).andReturn().request.session
     }
 }

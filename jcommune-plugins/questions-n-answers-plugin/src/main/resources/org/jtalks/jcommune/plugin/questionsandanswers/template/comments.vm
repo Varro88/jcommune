@@ -54,13 +54,23 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
             <div class="comment-date pull-left">
               ${dateTool.format($comment.creationDate)}
             </div>
+              #if($comment.userChanged)
+                  <div class="comment-editor-info">
+                      <jcommune:message>label.modify</jcommune:message>
+                      <a class="no-right-space" href="${request.contextPath}/users/$comment.userChanged.id"
+                                           data-original-title="${esc.html(${messages.getString("label.tips.view_profile")})}">
+                         ${esc.html($comment.userChanged.username)}
+                       </a>,
+                    ${dateTool.format($comment.modificationDate)}
+                  </div>
+              #end
             <div class="cleared"></div>
           </div>
           <div class="comment-body">
-            <span id="body-$comment.id" class="comment-content">${esc.html($comment.body)}</span>
+            <span id="body-$comment.id" class="comment-content">${converter.convertBbToHtml(${comment.body})}</span>
             <div id="edit-$comment.id" class="control-group edit" style="display: none">
                   <textarea id="editable-$comment.id" name="commentBody" class="comment-textarea edit-comment"
-                             rows="3">${esc.html($comment.body)}</textarea>
+                             rows="3">${htmlEscaper.process($comment.body)}</textarea>
                   <div class="comment-buttons-container">
                       <div class="pull-right">
                           <a class="btn btn-primary edit-submit" data-comment-id="$comment.id"><jcommune:message>label.save</jcommune:message></a>

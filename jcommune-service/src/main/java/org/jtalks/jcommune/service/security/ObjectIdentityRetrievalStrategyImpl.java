@@ -15,7 +15,7 @@
 package org.jtalks.jcommune.service.security;
 
 import org.jtalks.common.model.entity.Entity;
-import org.jtalks.common.security.acl.AclUtil;
+import org.jtalks.jcommune.service.security.acl.AclUtil;
 import org.springframework.security.acls.model.ObjectIdentity;
 import org.springframework.security.acls.model.ObjectIdentityRetrievalStrategy;
 

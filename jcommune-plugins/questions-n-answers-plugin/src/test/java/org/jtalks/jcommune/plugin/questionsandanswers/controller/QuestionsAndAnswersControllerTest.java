@@ -27,6 +27,7 @@ import org.jtalks.jcommune.plugin.api.web.dto.json.*;
 import org.jtalks.jcommune.plugin.api.web.locale.JcLocaleResolver;
 import org.jtalks.jcommune.plugin.api.web.util.BreadcrumbBuilder;
 import org.jtalks.jcommune.plugin.questionsandanswers.QuestionsAndAnswersPlugin;
+import org.jtalks.jcommune.plugin.api.service.PluginBbCodeService;
 import org.jtalks.jcommune.plugin.questionsandanswers.dto.CommentDto;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -85,6 +86,8 @@ public class QuestionsAndAnswersControllerTest {
     private LocaleResolver localeResolver;
     @Mock
     private PluginCommentService commentService;
+    @Mock
+    private PluginBbCodeService pluginBbCodeService;
 
     @Spy
     private QuestionsAndAnswersController controller = new QuestionsAndAnswersController();
@@ -104,12 +107,13 @@ public class QuestionsAndAnswersControllerTest {
         when(controller.getLocationService()).thenReturn(locationService);
         when(controller.getLocaleResolver()).thenReturn(localeResolver);
         when(controller.getCommentService()).thenReturn(commentService);
+        when(controller.getPluginBbCodeService()).thenReturn(pluginBbCodeService);
         when(localeResolver.resolveLocale(any(HttpServletRequest.class))).thenReturn(Locale.ENGLISH);
         when(userReader.getCurrentUser()).thenReturn(new JCUser("name", "example@mail.ru", "pwd"));
         controller.setApplicationContext(context);
         controller.setBreadcrumbBuilder(breadcrumbBuilder);
         when(breadcrumbBuilder.getForumBreadcrumb()).thenReturn(Collections.<Breadcrumb>emptyList());
-        when(locationService.getUsersViewing(any(Entity.class))).thenReturn(Collections.<JCUser>emptyList());
+        when(locationService.getUsersViewing(any(Entity.class))).thenReturn(Collections.<UserInfo>emptyList());
         doReturn(content).when(controller).getMergedTemplate(any(VelocityEngine.class), anyString(),
                 anyString(), anyMap());
         when(userReader.getCurrentUser()).thenReturn(new JCUser("name", "example@mail.ru", "pwd"));
@@ -566,8 +570,8 @@ public class QuestionsAndAnswersControllerTest {
         JsonResponse response = controller.editComment(dto, result, 1);
 
         assertEquals(response.getStatus(), JsonResponseStatus.SUCCESS);
-        assertTrue(response.getResult() instanceof String);
-        assertEquals(response.getResult(), dto.getBody());
+        assertTrue(response.getResult() instanceof CommentDto);
+        assertEquals(((CommentDto) response.getResult()).getBody(), dto.getBody());
     }
 
     @Test

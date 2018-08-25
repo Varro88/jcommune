@@ -95,6 +95,7 @@ $labelTopicMove = '<spring:message code="label.topic.move" htmlEscape="true"/>';
 $labelTopicMoveFull = '<spring:message code="label.topic.move.full" htmlEscape="true"/>';
 
 $labelReviewSays = '<spring:message code="label.review.says" htmlEscape="true"/>';
+$labelModified= '<spring:message code="label.modify" htmlEscape="true"/>';
 
 $labelUnexpectedError = '<spring:message code="label.unexpected.error" htmlEscape="true"/>';
 $labelAdd = '<spring:message code="label.add" htmlEscape="true"/>';
@@ -196,4 +197,18 @@ $labelUserGroupDeleteError = '<spring:message code="label.user.group.delete.erro
 $labelUserGroupsNoMatches = '<spring:message code="label.user.groups.no.matches" htmlEscape="true"/>';
 $labelGroupPlaceholderName = '<spring:message code="label.group.placeholder.name" htmlEscape="true"/>';
 $labelGroupPlaceholderDescription = '<spring:message code="label.group.placeholder.description" htmlEscape="true"/>';
-$labelGroupPopUpTitle = '<spring:message code="label.group.pop-up.title" htmlEscape="true"/>';
+$labelGroupCreateTitle = '<spring:message code="label.group.create.title" htmlEscape="true"/>';
+$labelGroupEditTitle = '<spring:message code="label.group.edit.title" htmlEscape="true"/>';
+$deleteGroupDialogMessage = '<spring:message code="label.group.delete.message" htmlEscape="true"/>';
+$labelSpamProtectionErrorMessage = '<spring:message code="label.spamProtection.block.message" htmlEscape="true"/>';
+$spamProtectionRegexPlaceholder = '<spring:message code="label.spamRule.regex" htmlEscape="true"/>';
+$spamProtectionDescriptionPlaceholder = '<spring:message code="label.spamRule.description" htmlEscape="true"/>';
+$labelNewSpamRule = '<spring:message code="label.spamRule.new" htmlEscape="true"/>';
+$labelEditSpamRule = '<spring:message code="label.spamRule.edit" htmlEscape="true"/>';
+$labelSpamRuleEnabled = '<spring:message code="label.spamProtection.column.enabled" htmlEscape="true"/>';
+$labelDeleteSpamRule = '<spring:message code="label.spamRule.delete" htmlEscape="true"/>';
+$labelAccessDeniedMessage = '<spring:message code="access.denied" htmlEscape="true"/>' + ' ' +
+                    '<spring:message code="label.accessDenied.detail" htmlEscape="true"/>' + ' ' +
+                    '<spring:message code="label.accessDenied.checkPrivilegies" htmlEscape="true"/>' + ' ' +
+                    '<spring:message code="label.back2main" htmlEscape="true"/>';
+$labelGroupAddUser = '<spring:message code="label.group.add.user" htmlEscape="true"/>'

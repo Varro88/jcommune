@@ -18,16 +18,12 @@ import org.apache.commons.lang.RandomStringUtils;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.jtalks.common.model.dao.GroupDao;
-import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.model.entity.User;
-import org.jtalks.common.security.SecurityService;
 import org.jtalks.jcommune.model.dao.PostDao;
 import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.dto.LoginUserDto;
-import org.jtalks.jcommune.model.entity.AnonymousUser;
-import org.jtalks.jcommune.model.entity.JCUser;
-import org.jtalks.jcommune.model.entity.Language;
-import org.jtalks.jcommune.model.entity.Post;
+import org.jtalks.jcommune.model.dto.UserDto;
+import org.jtalks.jcommune.model.entity.*;
 import org.jtalks.jcommune.plugin.api.exceptions.NoConnectionException;
 import org.jtalks.jcommune.plugin.api.exceptions.NotFoundException;
 import org.jtalks.jcommune.plugin.api.exceptions.UnexpectedErrorException;
@@ -38,16 +34,14 @@ import org.jtalks.jcommune.service.dto.UserInfoContainer;
 import org.jtalks.jcommune.service.dto.UserNotificationsContainer;
 import org.jtalks.jcommune.service.dto.UserSecurityContainer;
 import org.jtalks.jcommune.service.exceptions.MailingFailedException;
-import org.jtalks.jcommune.service.exceptions.UserTriesActivatingAccountAgainException;
 import org.jtalks.jcommune.service.nontransactional.Base64Wrapper;
 import org.jtalks.jcommune.service.nontransactional.EncryptionService;
 import org.jtalks.jcommune.service.nontransactional.MailService;
 import org.jtalks.jcommune.service.nontransactional.MentionedUsers;
-import org.jtalks.jcommune.service.security.AdministrationGroup;
+import org.jtalks.jcommune.service.security.SecurityService;
 import org.jtalks.jcommune.service.util.AuthenticationStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 import javax.servlet.http.HttpServletRequest;
@@ -155,13 +149,8 @@ public class TransactionalUserService extends AbstractTransactionalEntityService
      */
     @Override
     public JCUser getCurrentUser() {
-        String name = securityService.getCurrentUserUsername();
-        if (name == null) {
-            return new AnonymousUser();
-        } else {
-            return this.getDao().getByUsername(name);
-        }
-
+        UserInfo userInfo = securityService.getCurrentUserBasicInfo();
+        return userInfo != null ? this.getDao().loadById(userInfo.getId()) : new AnonymousUser();
     }
 
     /**
@@ -257,30 +246,6 @@ public class TransactionalUserService extends AbstractTransactionalEntityService
      * {@inheritDoc}
      */
     @Override
-    public void activateAccount(String uuid) throws NotFoundException, UserTriesActivatingAccountAgainException {
-        JCUser user = this.getDao().getByUuid(uuid);
-        if (user == null) {
-            LOGGER.info("Could not activate user with UUID[{}] because it doesn't exist. Either it was removed from DB "
-                    + "because too much time passed between registration and activation, or there is an error in link"
-                    + ", might be possible the user searches for vulnerabilities in the forum.", uuid);
-            throw new NotFoundException();
-        } else if (!user.isEnabled()) {
-            Group group = groupDao.getGroupByName(AdministrationGroup.USER.getName());
-            user.addGroup(group);
-            user.setEnabled(true);
-            this.getDao().saveOrUpdate(user);
-            LOGGER.info("User [{}] successfully activated", user.getUsername());
-        } else {
-            LOGGER.info("User [{}] tried to activate his account again, but that's impossible. Either he clicked the " +
-                    "link again, or someone looks for vulnerabilities in the forum.", user.getUsername());
-            throw new UserTriesActivatingAccountAgainException();
-        }
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public JCUser getByUuid(String uuid) throws NotFoundException {
         JCUser user = this.getDao().getByUuid(uuid);
         if (user == null) {
@@ -294,7 +259,8 @@ public class TransactionalUserService extends AbstractTransactionalEntityService
      * {@inheritDoc}
      */
     @Override
-    @Scheduled(cron = "0 * * * * *") // cron expression: invoke every hour at :00 min, e.g. 11:00, 12:00 and so on
+//  Temporarily disabled. Until we find the bug due to which activated users become not activated.
+//    @Scheduled(cron = "0 * * * * *") // cron expression: invoke every hour at :00 min, e.g. 11:00, 12:00 and so on
     public void deleteUnactivatedAccountsByTimer() {
         DateTime today = new DateTime();
         for (JCUser user : this.getDao().getNonActivatedUsers()) {
@@ -378,6 +344,11 @@ public class TransactionalUserService extends AbstractTransactionalEntityService
     @PreAuthorize("hasPermission(#forumComponentId, 'COMPONENT', 'GeneralPermission.ADMIN')")
     public List<JCUser> findByUsernameOrEmail(long forumComponentId, String searchKey) {
         return getDao().findByUsernameOrEmail(searchKey, MAX_SEARCH_USER_COUNT);
+    }
+
+    @Override
+    public List<UserDto> findByUsernameOrEmailNotInGroup(String pattern, long groupId, int count) {
+        return getDao().findByUsernameOrEmailNotInGroup(pattern, groupId, count);
     }
 
     @Override

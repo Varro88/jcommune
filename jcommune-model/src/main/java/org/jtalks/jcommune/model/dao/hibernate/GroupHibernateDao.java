@@ -24,6 +24,8 @@ import org.jtalks.common.model.entity.User;
 import org.jtalks.jcommune.model.dao.GroupDao;
 import org.jtalks.jcommune.model.dao.utils.SqlLikeEscaper;
 import org.jtalks.jcommune.model.dto.GroupAdministrationDto;
+import org.jtalks.jcommune.model.dto.PageRequest;
+import org.jtalks.jcommune.model.dto.UserDto;
 import ru.javatalks.utils.general.Assert;
 
 import java.util.List;
@@ -150,5 +152,21 @@ public class GroupHibernateDao extends GenericDao<Group> implements GroupDao {
     @Override
     public List<GroupAdministrationDto> getGroupNamesWithCountOfUsers() {
         return (List<GroupAdministrationDto>) session().getNamedQuery("selectGroupsWithUserCount").list();
+    }
+
+    @Override
+    public List<UserDto> getGroupUsersPage(long id, PageRequest pageRequest) {
+        Query query = session().getNamedQuery("getUserDTOListFromGroupById");
+        query.setParameter("id", id);
+        query.setFirstResult(pageRequest.getOffset()).setMaxResults(pageRequest.getPageSize());
+        return query.list();
+    }
+
+    @Override
+    public int getGroupUserCount(long id) {
+        Query query = session().getNamedQuery("getCountUsersInGroup");
+        query.setParameter("id", id);
+        Number count = (Number) query.uniqueResult();
+        return count.intValue();
     }
 }
