@@ -19,12 +19,10 @@ import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.model.permissions.BranchPermission;
 import org.jtalks.common.model.permissions.GeneralPermission;
 import org.jtalks.common.model.permissions.JtalksPermission;
-import org.jtalks.common.service.security.SecurityContextFacade;
+import org.jtalks.common.service.security.SecurityContextHolderFacade;
 import org.jtalks.jcommune.model.dto.GroupsPermissions;
 import org.jtalks.jcommune.model.dto.PermissionChanges;
 import org.jtalks.jcommune.model.entity.Branch;
-import org.jtalks.jcommune.service.security.acl.AclClassName;
-import org.jtalks.jcommune.service.security.acl.AclGroupPermissionEvaluator;
 import org.jtalks.jcommune.service.transactional.TransactionalPermissionService;
 import org.mockito.Mock;
 import org.springframework.security.access.AccessDeniedException;
@@ -43,7 +41,7 @@ import static org.testng.Assert.*;
 public class TransactionalPermissionServiceTest {
 
     @Mock
-    private SecurityContextFacade contextFacade;
+    private SecurityContextHolderFacade contextFacade;
     @Mock
     private AclGroupPermissionEvaluator aclEvaluator;
 

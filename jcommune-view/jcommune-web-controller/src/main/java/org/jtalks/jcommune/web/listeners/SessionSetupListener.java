@@ -15,107 +15,49 @@
 package org.jtalks.jcommune.web.listeners;
 
 import org.jtalks.jcommune.model.entity.JCommuneProperty;
-import org.jtalks.jcommune.service.nontransactional.LocationService;
-import org.jtalks.jcommune.web.controller.AdministrationController;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.context.ApplicationContext;
+import org.springframework.web.context.support.WebApplicationContextUtils;
 
 import javax.servlet.ServletContext;
-import javax.servlet.http.HttpSession;
 import javax.servlet.http.HttpSessionEvent;
 import javax.servlet.http.HttpSessionListener;
 import java.util.concurrent.TimeUnit;
-
-import static org.jtalks.jcommune.web.util.AppContextUtils.getBeanFormApplicationContext;
 
 /**
  * Performs initial session setup.
  * Any general session settings are to be set here.
  *
  * @author Evgeniy Naumenko
- * @author Oleg Tkachenko
  */
 public class SessionSetupListener implements HttpSessionListener {
-    private static volatile JCommuneProperty sessionTimeoutProperty = null;
-    private static LocationService locationService = null;
-    private static int TIME_OUT_SECONDS;
-    private Logger logger = LoggerFactory.getLogger(SessionSetupListener.class);
 
     /**
      * Sets session timeout for any crated session based on a database-located property.
+     * As for now it affects registered user only.
      *
      * @param se session event to get new session from
      */
     @Override
     public void sessionCreated(HttpSessionEvent se) {
-        try {
-            if (sessionTimeoutProperty == null) {
-                synchronized (this) {
-                    if (sessionTimeoutProperty == null){
-                        ServletContext context = se.getSession().getServletContext();
-                        sessionTimeoutProperty = getBeanFormApplicationContext(context, JCommuneProperty.class, "sessionTimeoutProperty");
-                        locationService = getBeanFormApplicationContext(context, LocationService.class);
-                        int seconds = extractValueFromProperty(sessionTimeoutProperty);
-                        /* Zero property value should mean infinitive session.
-                        To disable session expiration we should pass negative value here.
-                        Setting zero as is results in weird Tomcat behavior.*/
-                        TIME_OUT_SECONDS = seconds > 0 ? seconds : -1;
-                    }
-                }
-            }
-            se.getSession().setMaxInactiveInterval(TIME_OUT_SECONDS);
-        } catch (Exception ex) {
-            logger.warn("Bean instantiation error: " + ex);
-            throw ex;
+        ServletContext servletContext = se.getSession().getServletContext();
+        ApplicationContext ctx = WebApplicationContextUtils.getRequiredWebApplicationContext(servletContext);
+        JCommuneProperty property = (JCommuneProperty) ctx.getBean("sessionTimeoutProperty");
+        int timeoutInSeconds = (int) TimeUnit.SECONDS.convert(property.intValue(), TimeUnit.MINUTES);
+        if (timeoutInSeconds > 0) {
+            se.getSession().setMaxInactiveInterval(timeoutInSeconds);
+        } else {
+            /* Zero property value should mean infinitive session.
+             To disable session expiration we should pass negative value here.
+             Setting zero as is results in weird Tomcat behavior.*/
+            se.getSession().setMaxInactiveInterval(-1);
         }
     }
 
     /**
-     * If session contain user when destroyed, then we need to clean location info of this user.
-     *
-     * @param se session event to get session and check for user in security context.
+     * {@inheritDoc}
      */
     @Override
     public void sessionDestroyed(HttpSessionEvent se) {
-        Object principal = getPrincipalFromSession(se.getSession());
-        if (principal != null) {
-            try {
-                locationService.clearUserLocation(principal);
-            } catch (Exception ex) {
-                logger.warn("Error clearing user location when session being destroyed: " + ex.getMessage());
-            }
-        }
-    }
-
-    /**
-     * Returns principal from SecurityContext
-     *
-     * @param currentSession current session
-     * @return {@link Object} authenticated principal.
-     */
-    private Object getPrincipalFromSession(HttpSession currentSession) {
-        Object securityContext = currentSession.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
-        if (securityContext == null) return null;
-        Authentication authentication = ((SecurityContext) securityContext).getAuthentication();
-        return authentication != null ? authentication.getPrincipal() : null;
-    }
-
-    /**
-     * @param sessionTimeoutProperty property to read
-     * @return time in seconds
-     */
-    private int extractValueFromProperty(JCommuneProperty sessionTimeoutProperty) {
-        int value = sessionTimeoutProperty != null ? sessionTimeoutProperty.intValue() : 0;
-        return (int) TimeUnit.SECONDS.convert(value, TimeUnit.MINUTES);
-    }
-
-    /**
-     * Needed in tests and {@link AdministrationController} when sessionTimeoutProperty is updated.
-     */
-    public static void resetSessionTimeoutProperty(){
-        sessionTimeoutProperty = null;
+        //noop
     }
 }

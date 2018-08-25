@@ -18,10 +18,7 @@ import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.service.EntityService;
 import org.jtalks.common.service.exceptions.NotFoundException;
 import org.jtalks.jcommune.model.dto.GroupAdministrationDto;
-import org.jtalks.jcommune.model.dto.PageRequest;
 import org.jtalks.jcommune.model.dto.SecurityGroupList;
-import org.jtalks.jcommune.model.dto.UserDto;
-import org.springframework.data.domain.Page;
 
 import java.util.List;
 
@@ -55,8 +52,6 @@ public interface GroupService extends EntityService<Group> {
      */
     List<Group> getByName(String name);
 
-    Page<UserDto> getPagedGroupUsers(long id, PageRequest pageRequest);
-
     /**
      * Delete group
      *
@@ -73,16 +68,6 @@ public interface GroupService extends EntityService<Group> {
      * @throws IllegalArgumentException if group is null
      */
     void saveGroup(Group selectedGroup);
-
-    /**
-     * Save new group if id is null.
-     * Update group if id is not null.
-     *
-     * @param dto
-     * @throws NotFoundException
-     * @throws org.jtalks.common.validation.ValidationException in case of duplicate group name
-     */
-    void saveOrUpdate(GroupAdministrationDto dto) throws NotFoundException;
 
     /**
      * @return list of GroupAdministrationDto

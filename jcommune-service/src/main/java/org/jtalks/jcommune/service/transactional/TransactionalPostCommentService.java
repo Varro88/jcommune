@@ -62,8 +62,6 @@ public class TransactionalPostCommentService extends
         PostComment comment = get(id);
         checkHasUpdatePermission(comment, branchId);
         comment.setBody(body);
-        comment.setUserChanged(userService.getCurrentUser());
-        comment.setModificationDate(DateTime.now());
         getDao().saveOrUpdate(comment);
 
         return comment;

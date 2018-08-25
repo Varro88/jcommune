@@ -12,8 +12,13 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
+package org.jtalks.jcommune.service.security;
 
-package org.jtalks.jcommune.service.security.acl;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.annotation.Nonnull;
 
 import org.apache.commons.lang.Validate;
 import org.jtalks.common.model.entity.Group;
@@ -21,23 +26,26 @@ import org.jtalks.common.model.permissions.BranchPermission;
 import org.jtalks.common.model.permissions.GeneralPermission;
 import org.jtalks.common.model.permissions.JtalksPermission;
 import org.jtalks.common.model.permissions.ProfilePermission;
+import org.jtalks.common.security.acl.AclManager;
+import org.jtalks.common.security.acl.AclUtil;
+import org.jtalks.common.security.acl.ExtendedMutableAcl;
+import org.jtalks.common.security.acl.GroupAce;
+import org.jtalks.common.security.acl.sids.JtalksSidFactory;
+
+import org.jtalks.common.security.acl.sids.UniversalSid;
+import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.entity.JCUser;
-import org.jtalks.jcommune.model.entity.UserInfo;
 import org.jtalks.jcommune.plugin.api.PluginPermissionManager;
-import org.jtalks.jcommune.service.security.SecurityService;
-import org.jtalks.jcommune.service.security.acl.sids.JtalksSidFactory;
-import org.jtalks.jcommune.service.security.acl.sids.UniversalSid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.PermissionEvaluator;
 import org.springframework.security.acls.jdbc.JdbcMutableAclService;
-import org.springframework.security.acls.model.*;
+import org.springframework.security.acls.model.AccessControlEntry;
+import org.springframework.security.acls.model.NotFoundException;
+import org.springframework.security.acls.model.ObjectIdentity;
+import org.springframework.security.acls.model.Permission;
+import org.springframework.security.acls.model.Sid;
 import org.springframework.security.core.Authentication;
-
-import javax.annotation.Nonnull;
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * This evaluator is used to process the annotations of the Spring Security like {@link
@@ -56,28 +64,27 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
     private final AclUtil aclUtil;
     private final JtalksSidFactory sidFactory;
     private final JdbcMutableAclService mutableAclService;
+    private final UserDao userDao;
     private final PluginPermissionManager pluginPermissionManager;
-    private final SecurityService securityService;
 
     /**
      * @param aclManager        for getting permissions on object indentity
      * @param aclUtil           utilities to work with Spring ACL
      * @param sidFactory        factory to work with principals
      * @param mutableAclService for checking existing of sids
-     * @param securityService   to get current user from SecurityContext
      */
-    public AclGroupPermissionEvaluator(@Nonnull AclManager aclManager,
+    public AclGroupPermissionEvaluator(@Nonnull org.jtalks.common.security.acl.AclManager aclManager,
                                        @Nonnull AclUtil aclUtil,
                                        @Nonnull JtalksSidFactory sidFactory,
                                        @Nonnull JdbcMutableAclService mutableAclService,
-                                       @Nonnull PluginPermissionManager pluginPermissionManager,
-                                       @Nonnull SecurityService securityService) {
+                                       @Nonnull UserDao userDao,
+                                       @Nonnull PluginPermissionManager pluginPermissionManager) {
         this.aclManager = aclManager;
         this.aclUtil = aclUtil;
         this.sidFactory = sidFactory;
         this.mutableAclService = mutableAclService;
+        this.userDao = userDao;
         this.pluginPermissionManager = pluginPermissionManager;
-        this.securityService = securityService;
     }
 
     /**
@@ -91,17 +98,21 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
     }
 
     /**
+     * TODO In runtime authentication object contains clear user password (not the hashed one).
+     * May be potential security issue.
+     * <p/>
      * {@inheritDoc}
      */
     @Override
     public boolean hasPermission(Authentication authentication, Serializable targetId,
                                  String targetType, Object permission) {
         Long id = parseTargetId(targetId);
-        JtalksPermission jtalksPermission = parseJtalksPermissionFrom(permission);
-        if (jtalksPermission == ProfilePermission.EDIT_OWN_PROFILE &&
-                ((UserInfo) authentication.getPrincipal()).getId() != id) {
+        if (permission == ProfilePermission.EDIT_OWN_PROFILE &&
+                ((JCUser) authentication.getPrincipal()).getId() != id) {
             return false;
         }
+        JtalksPermission jtalksPermission = permission instanceof Permission ?
+                (JtalksPermission) permission : getPermission(permission);
         ObjectIdentity objectIdentity = aclUtil.createIdentity(id, targetType);
         Sid sid = sidFactory.createPrincipal(authentication);
         List<AccessControlEntry> aces;
@@ -114,7 +125,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
             aces = new ArrayList<>();
             controlEntries = new ArrayList<>();
         }
-        if (jtalksPermission instanceof ProfilePermission && authentication.getPrincipal() instanceof UserInfo){
+        if (jtalksPermission instanceof ProfilePermission && authentication.getPrincipal() instanceof JCUser){
             if (isRestrictedPersonalPermission(authentication, jtalksPermission)) return false;
             else if (isAllowedPersonalPermission(authentication, jtalksPermission)) return true;
         }
@@ -135,14 +146,20 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
      * @return targetId as Long.
      */
     private Long parseTargetId(Serializable targetId) {
-        Validate.isTrue(targetId instanceof String || targetId instanceof Long, "Can't parse targetId, value=[" + targetId + "]");
-        if (targetId instanceof String) return Long.parseLong((String) targetId);
-        return (Long) targetId;
+        Long result = 0L;
+        Validate.isTrue(targetId instanceof String || targetId instanceof Long);
+        if (targetId instanceof String) {
+            result = Long.parseLong((String) targetId);
+        } else if (targetId instanceof Long) {
+            result = (Long) targetId;
+        }
+        return result;
     }
 
     /**
      * Check if this <tt>personal permission</tt> is allowed for groups of user from authentication
      *
+     * @param authentication authentication to check permission for it
      * @return <code>true</code> if this permission is allowed
      */
     private boolean isAllowedPersonalPermission(Authentication authentication, Permission permission) {
@@ -152,6 +169,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
     /**
      * Check if this <tt>personal permission</tt> is restricted for groups of user from authentication
      *
+     * @param authentication authentication to check permission for it
      * @return <code>true</code> if this permission is restricted
      */
     private boolean isRestrictedPersonalPermission(Authentication authentication, Permission permission) {
@@ -225,6 +243,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
     /**
      * Check if this <tt>permission</tt> is granted for groups of user from authentication
      *
+     * @param authentication      authentication to check permission for it
      * @param permission          permission to check
      * @param isCheckAllowedGrant flag that indicates what type of grant need to
      *                            be checked  - 'allowed' (true) or 'restricted' (false)
@@ -233,23 +252,30 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
      */
     private boolean isGrantedPersonalPermission(Authentication authentication, Permission permission,
                                                 boolean isCheckAllowedGrant) {
-        JCUser jcUser = securityService.getFullUserInfoFrom(authentication);
-        if (jcUser == null) return false;
-        List<Group> groups = jcUser.getGroups();
-        for (Group group : groups) {
-            ObjectIdentity groupIdentity = aclUtil.createIdentity(group.getId(), "GROUP");
-            Sid groupSid = sidFactory.create(group);
-            List<AccessControlEntry> groupAces;
-            try {
-                groupAces = ExtendedMutableAcl.castAndCreate(
-                        mutableAclService.readAclById(groupIdentity)).getEntries();
-            } catch (NotFoundException nfe) {
-                groupAces = new ArrayList<>();
+            JCUser storedUser = (JCUser) authentication.getPrincipal();
+            // retriev user with replicated groups from EhCache
+            JCUser actualUser = userDao.get(storedUser.getId());
+            if (actualUser == null) {
+                LOGGER.warn("{} : User #{} not found",
+                        this.getClass().getCanonicalName(),
+                        storedUser.getId());
+                return !isCheckAllowedGrant;
             }
-            if (isGrantedForSid(groupSid, groupAces, permission, isCheckAllowedGrant)) {
-                return true;
+            List<Group> groups = actualUser.getGroups();
+            for (Group group : groups) {
+                ObjectIdentity groupIdentity = aclUtil.createIdentity(group.getId(), "GROUP");
+                Sid groupSid = sidFactory.create(group);
+                List<AccessControlEntry> groupAces;
+                try {
+                    groupAces = ExtendedMutableAcl.castAndCreate(
+                            mutableAclService.readAclById(groupIdentity)).getEntries();
+                } catch (NotFoundException nfe) {
+                    groupAces = new ArrayList<>();
+                }
+                if (isGrantedForSid(groupSid, groupAces, permission, isCheckAllowedGrant)) {
+                    return true;
+                }
             }
-        }
         return false;
     }
 
@@ -259,6 +285,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
      *
      * @param controlEntries list of entries with security information for groups
      *                       to loop through
+     * @param authentication authentication to check permission for it
      * @param permission     permission to check
      * @return <code>true</code> if this permission is allowed.
      */
@@ -273,6 +300,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
      *
      * @param controlEntries list of entries with security information for groups
      *                       to loop through
+     * @param authentication authentication to check permission for it
      * @param permission     permission to check
      * @return <code>true</code> if this permission is restricted.
      */
@@ -287,6 +315,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
      *
      * @param controlEntries      list of entries with security information for groups
      *                            to loop through
+     * @param authentication      authentication to check permission for it
      * @param permission          permission to check
      * @param isCheckAllowedGrant flag that indicates what type of grant need to
      *                            be checked  - 'allowed' (true) or 'restricted' (false)
@@ -296,9 +325,10 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
     private boolean isGrantedForGroup(List<GroupAce> controlEntries,
                                       Authentication authentication, Permission permission,
                                       boolean isCheckAllowedGrant) {
-        JCUser jcUser = securityService.getFullUserInfoFrom(authentication);
-        if (jcUser == null) return false;
-        List<Long> groupsIDs = jcUser.getGroupsIDs();
+        Object auth = authentication.getPrincipal();
+        if (!(auth instanceof JCUser)) return false;
+
+        List<Long> groupsIDs = ((JCUser) auth).getGroupsIDs();
         for (GroupAce ace : controlEntries) {
             if (groupsIDs.contains(ace.getGroupId())) {
                 if (isGrantedForGroup(ace, permission, isCheckAllowedGrant)) return true;
@@ -327,8 +357,7 @@ public class AclGroupPermissionEvaluator implements PermissionEvaluator {
                 && permission.equals(permissionToComapare);
     }
 
-    private JtalksPermission parseJtalksPermissionFrom(Object permission) {
-        if (permission instanceof Permission) return (JtalksPermission) permission;
+    private JtalksPermission getPermission(Object permission) {
         String permissionName = (String) permission;
 
         if ((permissionName).startsWith(GeneralPermission.class.getSimpleName())) {

@@ -16,78 +16,73 @@ package org.jtalks.jcommune.web.controller;
 
 import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.model.permissions.JtalksPermission;
-import org.jtalks.common.validation.ValidationError;
-import org.jtalks.common.validation.ValidationException;
-import org.jtalks.jcommune.model.dto.*;
+import org.jtalks.jcommune.model.dto.GroupAdministrationDto;
+import org.jtalks.jcommune.model.dto.GroupsPermissions;
+import org.jtalks.jcommune.model.dto.PermissionChanges;
 import org.jtalks.jcommune.model.entity.Branch;
 import org.jtalks.jcommune.model.entity.ComponentInformation;
+import org.jtalks.jcommune.service.BranchService;
+import org.jtalks.jcommune.service.ComponentService;
 import org.jtalks.jcommune.plugin.api.exceptions.NotFoundException;
+import org.jtalks.jcommune.service.GroupService;
+import org.jtalks.jcommune.service.security.PermissionManager;
+import org.jtalks.jcommune.web.dto.BranchDto;
+import org.jtalks.jcommune.web.dto.BranchPermissionDto;
+import org.jtalks.jcommune.web.dto.GroupDto;
+import org.jtalks.jcommune.web.dto.PermissionGroupsDto;
 import org.jtalks.jcommune.plugin.api.web.dto.json.JsonResponse;
 import org.jtalks.jcommune.plugin.api.web.dto.json.JsonResponseStatus;
-import org.jtalks.jcommune.service.*;
-import org.jtalks.jcommune.service.security.PermissionManager;
-import org.jtalks.jcommune.web.dto.*;
-import org.jtalks.jcommune.web.listeners.SessionSetupListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
-import org.springframework.data.domain.Page;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
-import org.springframework.validation.ObjectError;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 /**
  * @author Andrei Alikov
  *         Controller for processing forum administration related requests
  *         such as setting up Forum title, description, logo and fav icon
- *         Some methods in controller are directly used from test classes,
- *         and some of them are not @SuppressWarnings("unused") is used to
- *         disable IDE warnings about methods without direct access.
  */
-@SuppressWarnings("unused")
 @Controller
 public class AdministrationController {
 
     /**
      * Session's marker attribute name for Administration mode
      */
-    static final String ADMIN_ATTRIBUTE_NAME = "adminMode";
+    public static final String ADMIN_ATTRIBUTE_NAME = "adminMode";
     private static final String ACCESS_DENIED_MESSAGE = "access.denied";
-    private static final int GROUP_USER_PAGE_SIZE = 20;
 
     private final ComponentService componentService;
     private final GroupService groupService;
-    private final UserService userService;
     private final MessageSource messageSource;
     private final BranchService branchService;
     private final PermissionManager permissionManager;
-    private final SpamProtectionService spamProtectionService;
 
+    /**
+     * Creates instance of the service
+     *
+     * @param componentService service to work with the forum component
+     * @param messageSource    to resolve locale-dependent messages
+     * @param permissionManager
+     */
     @Autowired
     public AdministrationController(ComponentService componentService,
                                     MessageSource messageSource,
                                     BranchService branchService,
                                     PermissionManager permissionManager,
-                                    GroupService groupService,
-                                    SpamProtectionService spamProtectionService,
-                                    UserService userService) {
+                                    GroupService groupService) {
         this.messageSource = messageSource;
         this.componentService = componentService;
         this.branchService = branchService;
         this.permissionManager = permissionManager;
         this.groupService = groupService;
-        this.spamProtectionService = spamProtectionService;
-        this.userService = userService;
     }
 
     /**
@@ -138,9 +133,6 @@ public class AdministrationController {
 
         try {
             componentService.setComponentInformation(componentInformation);
-            // SessionSetupListener read session timeout property once on application startup and
-            // keeps it in memory, so when property is updated we need to read it again.
-            SessionSetupListener.resetSessionTimeoutProperty();
         } catch (AccessDeniedException e) {
             String errorMessage = messageSource.getMessage(ACCESS_DENIED_MESSAGE, null, locale);
             return new JsonResponse(JsonResponseStatus.FAIL, errorMessage);
@@ -228,10 +220,10 @@ public class AdministrationController {
         } catch (NotFoundException e) {
             return new JsonResponse(JsonResponseStatus.FAIL, null);
         }
-        List<GroupDto> alreadySelected = GroupDto.convertToGroupDtoList(selectedGroups, GroupDto.BY_NAME_COMPARATOR);
+        List<GroupDto> alreadySelected = GroupDto.convertGroupList(selectedGroups, true);
 
         List<Group> availableGroups = permissionManager.getAllGroupsWithoutExcluded(selectedGroups, branchPermission);
-        List<GroupDto> available = GroupDto.convertToGroupDtoList(availableGroups, GroupDto.BY_NAME_COMPARATOR);
+        List<GroupDto> available = GroupDto.convertGroupList(availableGroups, true);
 
         permission.setSelectedGroups(alreadySelected);
         permission.setAvailableGroups(available);
@@ -268,7 +260,7 @@ public class AdministrationController {
     public ModelAndView showGroupsWithUsers() {
         checkForAdminPermissions();
         List<GroupAdministrationDto> groupAdministrationDtos = groupService.getGroupNamesWithCountOfUsers();
-        return new ModelAndView("groupAdministration").addObject("groups", groupAdministrationDtos);
+        return new ModelAndView("groupAdministration").addObject("groups",groupAdministrationDtos);
     }
 
     /**
@@ -277,69 +269,16 @@ public class AdministrationController {
      * @param groupDto {@link GroupAdministrationDto} populated in form
      * @return JsonResponse with JsonResponseStatus. SUCCESS if registration successful or FAIL if failed
      */
-    @RequestMapping(value = "/group", method = RequestMethod.POST)
+    @RequestMapping(value = "/group/new", method = RequestMethod.POST)
     @ResponseBody
-    public JsonResponse createNewGroup(@Valid @RequestBody GroupAdministrationDto groupDto, BindingResult result, Locale locale) throws org.jtalks.common.service.exceptions.NotFoundException {
-        return saveOrUpdateGroup(groupDto, result, locale);
-    }
-
-    @RequestMapping(value = "/group/{groupId}", method = RequestMethod.PUT)
-    @ResponseBody
-    public JsonResponse editGroup(@Valid @RequestBody GroupAdministrationDto groupDto,
-                                  BindingResult result,
-                                  @PathVariable("groupId") Long groupId,
-                                  Locale locale) throws org.jtalks.common.service.exceptions.NotFoundException {
-        return saveOrUpdateGroup(groupDto, result, locale);
-    }
-
-    @RequestMapping(value = "/group/{groupId}", method = RequestMethod.GET)
-    public ModelAndView getGroupUsers(@PathVariable("groupId") long groupId,
-                                      @RequestParam(value = "page", defaultValue = "1", required = false) int page)
-            throws org.jtalks.common.service.exceptions.NotFoundException {
-        checkForAdminPermissions();
-        GroupDto groupDto = new GroupDto(groupService.get(groupId));
-        Page<UserDto> pagedGroupUsers = getPagedGroupUsers(groupId, page);
-        return new ModelAndView("groupUserList")
-                .addObject("group", groupDto)
-                .addObject("groupUsersPage", pagedGroupUsers);
-    }
-
-    @RequestMapping(value = "/ajax/group/{groupId}", method = RequestMethod.GET)
-    @ResponseBody
-    public JsonResponse ajaxGetGroupUsers(@PathVariable("groupId") long groupId,
-                                          @RequestParam(value = "page", defaultValue = "1", required = false) int page)
-            throws org.jtalks.common.service.exceptions.NotFoundException {
-        Page<UserDto> pagedGroupUsers = getPagedGroupUsers(groupId, page);
-        return new JsonResponse(JsonResponseStatus.SUCCESS, pagedGroupUsers);
-    }
-
-    @RequestMapping(value = "/group/{groupId}", method = RequestMethod.DELETE)
-    @ResponseBody
-    public JsonResponse deleteGroup(@PathVariable("groupId") Long groupId) throws org.jtalks.common.service.exceptions.NotFoundException {
-        checkForAdminPermissions();
-        Group group = groupService.get(groupId);
-        groupService.deleteGroup(group);
-        return new JsonResponse(JsonResponseStatus.SUCCESS);
-    }
-
-    @RequestMapping(value = "/spamprotection", method = RequestMethod.GET)
-    public ModelAndView getSpamProtectionPage(){
-        checkForAdminPermissions();
-        List<SpamRuleDto> ruleDtos = SpamRuleDto.fromEntities(spamProtectionService.getAllRules());
-        return new ModelAndView("spamProtection").addObject("rules", ruleDtos);
-    }
-
-    @RequestMapping(value = "/user", params = {"notInGroupId", "pattern"}, method = RequestMethod.GET)
-    @ResponseBody
-    public JsonResponse findUserNotInGroup(@RequestParam("notInGroupId") long notInGroupId,
-                                           @Valid @ModelAttribute SearchQueryDto searchQueryDto,
-                                           BindingResult result) {
+    public JsonResponse createNewGroup(@Valid @RequestBody GroupAdministrationDto groupDto, BindingResult result) {
         checkForAdminPermissions();
         if (result.hasFieldErrors() || result.hasGlobalErrors()) {
             return new JsonResponse(JsonResponseStatus.FAIL, result.getAllErrors());
         }
-        List<UserDto> users = userService.findByUsernameOrEmailNotInGroup(searchQueryDto.getPattern(), notInGroupId, 10);
-        return new JsonResponse(JsonResponseStatus.SUCCESS, users);
+        Group group = new Group(groupDto.getName(), groupDto.getDescription());
+        groupService.saveGroup(group);
+        return new JsonResponse(JsonResponseStatus.SUCCESS, null);
     }
 
     /**
@@ -358,37 +297,5 @@ public class AdministrationController {
     private void checkForAdminPermissions() {
         long forumId = componentService.getComponentOfForum().getId();
         componentService.checkPermissionsForComponent(forumId);
-    }
-
-    private JsonResponse saveOrUpdateGroup(@Valid @RequestBody GroupAdministrationDto groupDto, BindingResult result, Locale locale) throws org.jtalks.common.service.exceptions.NotFoundException {
-        checkForAdminPermissions();
-        if (result.hasFieldErrors() || result.hasGlobalErrors()) {
-            return new JsonResponse(JsonResponseStatus.FAIL, result.getAllErrors());
-        }
-        try {
-            groupService.saveOrUpdate(groupDto);
-        } catch (ValidationException e) {
-            return new JsonResponse(JsonResponseStatus.FAIL, convertErrors(e.getErrors(), result.getObjectName(), locale));
-        }
-        return new JsonResponse(JsonResponseStatus.SUCCESS);
-    }
-
-    private List<ObjectError> convertErrors(Set<ValidationError> errors, String objectName, Locale locale) {
-        List<ObjectError> objectErrors = new ArrayList<>();
-        for (ValidationError error : errors) {
-            objectErrors.add(new FieldError(objectName,
-                                            error.getFieldName(),
-                                            messageSource.getMessage(error.getErrorMessageCode(), null, locale)));
-
-        }
-        return objectErrors;
-    }
-
-    private Page<UserDto> getPagedGroupUsers(long groupId, int page)
-            throws org.jtalks.common.service.exceptions.NotFoundException {
-        checkForAdminPermissions();
-        GroupDto groupDto = new GroupDto(groupService.get(groupId));
-        PageRequest pageRequest = new PageRequest(page, GROUP_USER_PAGE_SIZE);
-        return groupService.getPagedGroupUsers(groupId, pageRequest);
     }
 }

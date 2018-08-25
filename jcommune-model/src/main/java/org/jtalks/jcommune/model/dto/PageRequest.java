@@ -42,15 +42,16 @@ public class PageRequest implements Pageable {
      * @param pageSize size of page
      */
     public PageRequest(String requestedPageNumber, int pageSize) {
-        this(preparePageNumber(requestedPageNumber), preparePageSize(pageSize));
+        this.pageNumber = preparePageNumber(requestedPageNumber);
+        this.pageSize = preparePageSize(pageSize);
     }
 
-    public PageRequest(int pageNumber, int pageSize) {
+    private PageRequest(int pageNumber, int pageSize) {
         this.pageNumber = pageNumber;
         this.pageSize = pageSize;
     }
 
-    private static int preparePageSize(int pageSize) {
+    private int preparePageSize(int pageSize) {
         return (pageSize <= 0) ? DEFAULT_PAGE_SIZE : pageSize;
     }
 
@@ -63,7 +64,7 @@ public class PageRequest implements Pageable {
      *         {@link Integer#MAX_VALUE} if specified string is greater than {@link PageRequest#MAX_PAGE}<br/>
      *         {@link PageRequest#FIRST_PAGE_NUMBER} if specified string is not a number
      */
-    private static int preparePageNumber(String pageNumber) {
+    private int preparePageNumber(String pageNumber) {
         int result;
         pageNumber = pageNumber.replaceFirst("^0+(?!$)", "");//removing trailing zeroes
         if (pageNumber.matches("\\d{1,9}")) {

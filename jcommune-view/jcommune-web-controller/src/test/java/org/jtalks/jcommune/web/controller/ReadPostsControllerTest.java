@@ -18,11 +18,9 @@ import static org.testng.Assert.assertEquals;
 
 
 import org.jtalks.jcommune.model.entity.Branch;
-import org.jtalks.jcommune.model.entity.Topic;
 import org.jtalks.jcommune.service.BranchService;
 import org.jtalks.jcommune.service.LastReadPostService;
 import org.jtalks.jcommune.plugin.api.exceptions.NotFoundException;
-import org.jtalks.jcommune.service.TopicFetchService;
 import org.mockito.Mock;
 import static org.mockito.MockitoAnnotations.initMocks;
 
@@ -44,9 +42,6 @@ public class ReadPostsControllerTest {
     private BranchService branchService;
     @Mock
     private LastReadPostService lastReadPostService;
-    @Mock
-    private TopicFetchService topicFetchService;
-
     private ReadPostsController controller;
     RetryTemplate retryTemplate;
     
@@ -55,7 +50,7 @@ public class ReadPostsControllerTest {
         initMocks(this);
         retryTemplate = new RetryTemplate();
         retryTemplate.setRetryPolicy(new NeverRetryPolicy());
-        controller = new ReadPostsController(branchService, lastReadPostService, retryTemplate, topicFetchService);
+        controller = new ReadPostsController(branchService, lastReadPostService, retryTemplate);
     }
     
     @Test
@@ -84,13 +79,5 @@ public class ReadPostsControllerTest {
         
         assertEquals(result, "redirect:/branches/" + String.valueOf(markedBranchId));
         verify(lastReadPostService).markAllTopicsAsRead(willBeMarkedBranch);
-    }
-
-    @Test
-    public void markTopicAsReadByIdShouldMarkItAsRead() throws NotFoundException {
-        Topic topicToRead = new Topic();
-        when(topicFetchService.get(1L)).thenReturn(topicToRead);
-        controller.markTopicPageAsReadById(1L, 10);
-        verify(lastReadPostService).markTopicPageAsRead(topicToRead, 10);
     }
 }

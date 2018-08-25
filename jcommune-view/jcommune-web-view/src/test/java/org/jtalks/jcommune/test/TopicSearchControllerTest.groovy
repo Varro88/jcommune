@@ -49,7 +49,7 @@ class TopicSearchControllerTest extends Specification {
     @Autowired GroupsService groupsService;
 
     def setup() {
-        groupsService.createPredefinedGroups();
+        groupsService.create();
     }
 
     def 'must not be able to send GET request to indexing data from database'() {
@@ -60,7 +60,7 @@ class TopicSearchControllerTest extends Specification {
         when: 'send GET request to indexing data from database'
            MvcResult mvcResult = rebuildIndexes(session);
         then: 'redirect to 403 error page'
-           assertView(mvcResult, "/errors/403");
+           assertView(mvcResult, "redirect:/errors/403");
     }
 
     def rebuildIndexes(HttpSession session) {

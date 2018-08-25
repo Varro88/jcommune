@@ -15,7 +15,6 @@
 
 package org.jtalks.jcommune.plugin.auth.poulpe.service;
 
-import org.apache.commons.lang3.StringUtils;
 import org.jtalks.jcommune.model.dto.UserDto;
 import org.jtalks.jcommune.plugin.api.exceptions.NoConnectionException;
 import org.jtalks.jcommune.plugin.api.exceptions.UnexpectedErrorException;
@@ -49,17 +48,17 @@ import java.util.concurrent.ConcurrentMap;
 public class PoulpeAuthService {
 
     private static final int CONNECTION_TIMEOUT = 5000;
+    public static final String DRY_RUN_PARAM = "dryRun";
+    public static final String TRUE = "true";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private String regUrl;
     private String authUrl;
-    private String activationUrl;
     private String login;
     private String password;
 
     public PoulpeAuthService(String url, String login, String password) {
         this.regUrl = url + "/rest/private/user";
-        this.activationUrl = url + "/rest/private/activate";
         this.authUrl = url + "/rest/authenticate";
         this.login = login;
         this.password = password;
@@ -98,18 +97,7 @@ public class PoulpeAuthService {
         return result;
     }
 
-    /**
-     * Activate user with specified username in Poulpe.
-     * @param username username
-     */
-    public void activate(String username) {
-        ClientResource clientResource = null;
-        try {
-            clientResource = sendActivationRequest(username);
-        } finally {
-            if (clientResource != null) closeRestletConnection(clientResource);
-        }
-    }
+
 
     private void closeRestletConnection(ClientResource clientResource) {
         try {
@@ -271,15 +259,17 @@ public class PoulpeAuthService {
      */
     protected ClientResource sendRegistrationRequest(User user, Boolean dryRun) {
         ClientResource clientResource = createClientResource(regUrl, true);
-        addCredentialsIfAny(clientResource);
+        if (login != null && !login.isEmpty() && password != null && !password.isEmpty()) {
+            clientResource.setChallengeResponse(ChallengeScheme.HTTP_BASIC, login, password);
+        }
         if (dryRun) {
-            addHeaderAttribute(clientResource, "dryRun", "true");
+            addHeaderAttribute(clientResource, DRY_RUN_PARAM, TRUE);
         }
         writeRequestInfoToLog(clientResource);
         try {
             clientResource.post(user);
         } catch (ResourceException e) {
-            logger.warn("Poulpe registration request error: {}", e.getStatus());
+            logger.debug("Poulpe registration request error: {}", e.getStatus());
         }
         return clientResource;
     }
@@ -294,39 +284,25 @@ public class PoulpeAuthService {
     protected ClientResource sendAuthRequest(String username, String passwordHash) {
         String url = authUrl + "?username=" + username + "&passwordHash=" + passwordHash;
         ClientResource clientResource = createClientResource(url, false);
-        addCredentialsIfAny(clientResource);
+        if (login != null && !login.isEmpty() && password != null && !password.isEmpty()) {
+            clientResource.setChallengeResponse(ChallengeScheme.HTTP_BASIC, login, password);
+        }
         writeRequestInfoToLog(clientResource);
         try {
             clientResource.get();
         } catch (ResourceException e) {
-            logger.warn("Poulpe authentication request error: {}", e.getStatus());
+            logger.debug("Poulpe authentication request error: {}", e.getStatus());
         }
         return clientResource;
     }
 
-    /**
-     * Send user activation request for specified username
-     * @param username username
-     * @return ClientResource result
-     */
-    protected ClientResource sendActivationRequest(String username){
-        String url = activationUrl + "?username=" + username;
-        ClientResource clientResource = createClientResource(url, false);
-        addCredentialsIfAny(clientResource);
-        writeRequestInfoToLog(clientResource);
-        try {
-            clientResource.get();
-        } catch (ResourceException e) {
-            logger.warn("Poulpe activation request error: {}", e.getStatus());
-        }
-        return clientResource;
-    }
-
-    @SuppressWarnings("unchecked")
     private void writeRequestInfoToLog(ClientResource clientResource) {
         ConcurrentMap<String, Object> attrs = clientResource.getRequest().getAttributes();
         Series<Header> headers = (Series<Header>) attrs.get(HeaderConstants.ATTRIBUTE_HEADERS);
-        logger.info("Request to Poulpe: requested URI - {}, request headers - {}, request body - {}",
+        if (headers != null) {
+            String h = headers.toString();
+        }
+        logger.debug("Request to Poulpe: requested URI - {}, request headers - {}, request body - {}",
                 new Object[]{clientResource.getRequest().getResourceRef(), headers, clientResource.getRequest()});
     }
 
@@ -336,10 +312,5 @@ public class PoulpeAuthService {
         clientResource.getContext().getParameters().add("maxIoIdleTimeMs", String.valueOf(CONNECTION_TIMEOUT));
         clientResource.setEntityBuffering(buffering);
         return clientResource;
-    }
-
-    private void addCredentialsIfAny(ClientResource clientResource){
-        if (!StringUtils.isAnyBlank(login, password))
-            clientResource.setChallengeResponse(ChallengeScheme.HTTP_BASIC, login, password);
     }
 }

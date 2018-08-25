@@ -12,17 +12,22 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-package org.jtalks.jcommune.service.exceptions;
+package org.jtalks.jcommune.service.security;
 
 /**
- * Thrown in the case of not allowed or not possible operation,
- * like modification of pre-defined user group.
+ * Contains acl class names that use by {@link org.jtalks.common.security.acl.TypeConvertingObjectIdentityGenerator}
  *
- *  @author Pavel Vervenko
+ * @author Elena Lepaeva
  */
-public class OperationIsNotAllowedException extends RuntimeException {
-
-    public OperationIsNotAllowedException(String message) {
-        super(message);
-    }
+public enum AclClassName {
+    BRANCH,
+    USER,
+    POLL,
+    POST,
+    PRIVATE_MESSAGE,
+    TOPIC,
+    SIMPLE_PAGE,
+    SECTION,
+    COMPONENT,
+    GROUP
 }

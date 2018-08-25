@@ -284,7 +284,7 @@
       </div>
              
                    <span class="thumbnail post-userinfo-avatal wraptocenter">
-                        <img src="${pageContext.request.contextPath}/users/${post.userCreated.id}/avatar?version=${post.userCreated.version}" alt=""/>
+                        <img src="${pageContext.request.contextPath}/users/${post.userCreated.id}/avatar" alt=""/>
                    </span>
 
       <div>
@@ -385,7 +385,4 @@ Without it we're likely to get lots of problems simulating HTTP DELETE via JS in
     Utils.focusFirstEl('#postBody');
   }
 </script>
-<c:if test="${markAsReadLink != null}">
-  <script type="text/javascript" src="${markAsReadLink}" defer></script>
-</c:if>
 </body>

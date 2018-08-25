@@ -15,11 +15,9 @@
 package org.jtalks.jcommune.web.controller;
 
 import org.jtalks.jcommune.model.entity.Branch;
-import org.jtalks.jcommune.model.entity.Topic;
 import org.jtalks.jcommune.service.BranchService;
 import org.jtalks.jcommune.service.LastReadPostService;
 import org.jtalks.jcommune.plugin.api.exceptions.NotFoundException;
-import org.jtalks.jcommune.service.TopicFetchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.orm.hibernate3.HibernateOptimisticLockingFailureException;
 import org.springframework.retry.RetryCallback;
@@ -29,7 +27,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * Handles all "mark all read" requests that aren't related to the list
@@ -42,11 +39,9 @@ import org.springframework.web.bind.annotation.ResponseBody;
  */
 @Controller
 public class ReadPostsController {
-    private final BranchService branchService;
-    private final TopicFetchService topicService;
-    private final LastReadPostService lastReadPostService;
-    private final RetryTemplate retryTemplate;
-
+    private BranchService branchService;
+    private LastReadPostService lastReadPostService;
+    private RetryTemplate retryTemplate;
     /**
      * Constructs an instance with required fields.
      * 
@@ -55,11 +50,10 @@ public class ReadPostsController {
      */
     @Autowired
     public ReadPostsController(BranchService branchService, LastReadPostService lastReadPostService,
-                               RetryTemplate retryTemplate, TopicFetchService topicService) {
+                               RetryTemplate retryTemplate) {
         this.branchService = branchService;
         this.lastReadPostService = lastReadPostService;
         this.retryTemplate = retryTemplate;
-        this.topicService = topicService;
     }
 
     /**
@@ -103,21 +97,5 @@ public class ReadPostsController {
         Branch branch = branchService.get(id);
         lastReadPostService.markAllTopicsAsRead(branch);
         return "redirect:/branches/" + id;
-    }
-
-    /**
-     * Marks the specified page of the topic as read.
-     *
-     * @param topicId topic id to mark
-     * @param pageNum page number to mark
-     * @throws NotFoundException if the topic not found
-     */
-    @ResponseBody
-    @RequestMapping("/topics/{topicId}/page/{pageNum}/markread")
-    public String markTopicPageAsReadById(@PathVariable long topicId,
-                                          @PathVariable int pageNum) throws NotFoundException {
-        Topic topic = topicService.get(topicId);
-        lastReadPostService.markTopicPageAsRead(topic, pageNum);
-        return "";
     }
 }

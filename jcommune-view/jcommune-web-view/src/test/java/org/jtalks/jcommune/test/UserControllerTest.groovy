@@ -41,7 +41,7 @@ class UserControllerTest extends Specification {
     @Autowired GroupsService groupsService
 
     def setup() {
-        groupsService.createPredefinedGroups()
+        groupsService.create()
     }
 
     def 'must return all the groups of a user'() {

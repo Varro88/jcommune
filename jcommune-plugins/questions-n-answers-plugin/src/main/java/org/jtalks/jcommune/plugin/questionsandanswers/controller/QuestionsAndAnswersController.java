@@ -38,8 +38,6 @@ import org.jtalks.jcommune.plugin.api.web.velocity.tool.JodaDateTimeTool;
 import org.jtalks.jcommune.plugin.api.web.velocity.tool.PermissionTool;
 import org.jtalks.jcommune.plugin.questionsandanswers.QuestionsAndAnswersPlugin;
 import org.jtalks.jcommune.plugin.questionsandanswers.dto.CommentDto;
-import org.kefirsf.bb.EscapeXmlProcessorFactory;
-import org.kefirsf.bb.TextProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.data.domain.PageImpl;
@@ -93,11 +91,7 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
     private static final String QEUSTION_TITLE = "questionTitle";
     public static final String POST_ID = "postId";
     public static final String COMMENT_ID = "commentId";
-    private static final String HTML_ESCAPER = "htmlEscaper";
 
-    // custom processor is used for escaping of HTML because
-    // standard Velocity escaping utility not correct displays emoji.
-    private TextProcessor htmlEscaper = EscapeXmlProcessorFactory.getInstance().create();
 
     private BreadcrumbBuilder breadcrumbBuilder = new BreadcrumbBuilder();
 
@@ -133,7 +127,6 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
         data.put(BREADCRUMB_LIST, breadcrumbBuilder.getForumBreadcrumb(dto.getTopic()));
         data.put(TOPIC_DTO, dto);
         data.put(TOPIC_DRAFT, draft);
-        data.put(HTML_ESCAPER, htmlEscaper);
         data.put(EDIT_MODE, false);
         model.addAttribute(CONTENT, getMergedTemplate(engine, QUESTION_FORM_TEMPLATE_PATH, "UTF-8", data));
         return PLUGIN_VIEW_NAME;
@@ -165,7 +158,6 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
         if (result.hasErrors()) {
             data.put(BREADCRUMB_LIST, breadcrumbBuilder.getNewTopicBreadcrumb(branch));
             data.put(TOPIC_DTO, topicDto);
-            data.put(HTML_ESCAPER, htmlEscaper);
             data.put(RESULT, result);
             model.addAttribute(CONTENT, getMergedTemplate(engine, QUESTION_FORM_TEMPLATE_PATH, "UTF-8", data));
             return PLUGIN_VIEW_NAME;
@@ -219,8 +211,7 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
         data.put(POST_PAGE, new PageImpl<>(getSortedPosts(topic.getPosts())));
         data.put(BREADCRUMB_LIST, breadcrumbBuilder.getForumBreadcrumb(topic));
         data.put(SUBSCRIBED, false);
-        data.put(CONVERTER, getPluginBbCodeService());
-        data.put(HTML_ESCAPER, htmlEscaper);
+        data.put(CONVERTER, BbToHtmlConverter.getInstance());
         data.put(VIEW_LIST, getLocationService().getUsersViewing(topic));
         data.put(POST_DTO, postDto);
         data.put(LIMIT_OF_POSTS_ATTRIBUTE, LIMIT_OF_POSTS_VALUE);
@@ -283,7 +274,6 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
         Map<String, Object> data = getDefaultModel(request);
         data.put(BREADCRUMB_LIST, breadcrumbBuilder.getForumBreadcrumb(topic));
         data.put(TOPIC_DTO, topicDto);
-        data.put(HTML_ESCAPER, htmlEscaper);
         data.put(EDIT_MODE, true);
         model.addAttribute(CONTENT, getMergedTemplate(engine, QUESTION_FORM_TEMPLATE_PATH, "UTF-8", data));
         return PLUGIN_VIEW_NAME;
@@ -315,7 +305,6 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
             engine.init();
             data.put(BREADCRUMB_LIST, breadcrumbBuilder.getForumBreadcrumb(topic));
             data.put(TOPIC_DTO, topicDto);
-            data.put(HTML_ESCAPER, htmlEscaper);
             data.put(EDIT_MODE, true);
             data.put(RESULT, result);
             model.addAttribute(CONTENT, getMergedTemplate(engine, QUESTION_FORM_TEMPLATE_PATH, "UTF-8", data));
@@ -347,7 +336,6 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
         Map<String, Object> data = getDefaultModel(request);
         data.put(QEUSTION_TITLE, answer.getTopic().getTitle());
         data.put(POST_DTO, answerDto);
-        data.put(HTML_ESCAPER, htmlEscaper);
         model.addAttribute(CONTENT, getMergedTemplate(engine, ANSWER_FORM_TEMPLATE_PATH, "UTF-8", data));
         return PLUGIN_VIEW_NAME;
     }
@@ -376,9 +364,9 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
             data.put(QEUSTION_TITLE, answer.getTopic().getTitle());
             data.put(POST_DTO, postDto);
             data.put(RESULT, result);
-            data.put(HTML_ESCAPER, htmlEscaper);
             model.addAttribute(CONTENT, getMergedTemplate(engine, ANSWER_FORM_TEMPLATE_PATH, "UTF-8", data));
             return PLUGIN_VIEW_NAME;
+
         }
         getPluginPostService().updatePost(answer, postDto.getBodyText());
         return "redirect:" + QuestionsAndAnswersPlugin.CONTEXT + "/" + answer.getTopic().getId() + "#" + id;
@@ -508,9 +496,7 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
             return new FailJsonResponse(JsonResponseReason.ENTITY_NOT_FOUND);
         }
         JodaDateTimeTool dateTimeTool = new JodaDateTimeTool(request);
-        return new JsonResponse(JsonResponseStatus.SUCCESS,
-                new CommentDto(comment, dateTimeTool)
-                        .withRenderBody(getPluginBbCodeService().convertBbToHtml(comment.getBody())));
+        return new JsonResponse(JsonResponseStatus.SUCCESS, new CommentDto(comment, dateTimeTool));
     }
 
     /**
@@ -535,9 +521,7 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
         } catch (NotFoundException ex) {
             return new FailJsonResponse(JsonResponseReason.ENTITY_NOT_FOUND);
         }
-        CommentDto commentDto = new CommentDto(updatedComment.getBody(),
-                getPluginBbCodeService().convertBbToHtml(updatedComment.getBody()));
-        return new JsonResponse(JsonResponseStatus.SUCCESS, commentDto);
+        return new JsonResponse(JsonResponseStatus.SUCCESS, updatedComment.getBody());
     }
 
     /**
@@ -721,15 +705,6 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
     /**
      * Needed for mocking
      *
-     * @return Service which convert BBCode and URL to HTML
-     */
-    PluginBbCodeService getPluginBbCodeService() {
-        return BbToHtmlConverter.getInstance();
-    }
-
-    /**
-     * Needed for mocking
-     *
      * @return service for manipulating with topics
      */
     TypeAwarePluginTopicService getTypeAwarePluginTopicService() {
@@ -779,6 +754,7 @@ public class QuestionsAndAnswersController implements ApplicationContextAware, P
     PluginCommentService getCommentService() {
         return TransactionalPluginCommentService.getInstance();
     }
+
 
     /**
      * Sets specified {@link BreadcrumbBuilder}

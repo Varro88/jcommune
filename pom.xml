@@ -5,7 +5,7 @@
   <groupId>org.jtalks.jcommune</groupId>
   <artifactId>jcommune</artifactId>
   <packaging>pom</packaging>
-  <version>3.13-SNAPSHOT</version>
+  <version>3.10-SNAPSHOT</version>
   <name>${project.artifactId}</name>
   <modules>
     <module>jcommune-model</module>
@@ -48,6 +48,11 @@
       <dependency>
         <groupId>org.jtalks.common</groupId>
         <artifactId>jtalks-common-service</artifactId>
+        <version>${commonVersion}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.jtalks.common</groupId>
+        <artifactId>jtalks-common-security</artifactId>
         <version>${commonVersion}</version>
       </dependency>
       <!-- Hibernate -->
@@ -176,22 +181,22 @@
       <dependency>
         <groupId>org.springframework.security</groupId>
         <artifactId>spring-security-core</artifactId>
-        <version>3.1.1.RELEASE</version>
+        <version>3.0.5.RELEASE</version>
       </dependency>
       <dependency>
         <groupId>org.springframework.security</groupId>
         <artifactId>spring-security-config</artifactId>
-        <version>3.1.1.RELEASE</version>
+        <version>3.0.5.RELEASE</version>
       </dependency>
       <dependency>
         <groupId>org.springframework.security</groupId>
         <artifactId>spring-security-web</artifactId>
-        <version>3.1.1.RELEASE</version>
+        <version>3.0.5.RELEASE</version>
       </dependency>
       <dependency>
         <groupId>org.springframework.security</groupId>
         <artifactId>spring-security-taglibs</artifactId>
-        <version>3.1.1.RELEASE</version>
+        <version>3.0.5.RELEASE</version>
       </dependency>
       <dependency>
         <groupId>org.springframework.security</groupId>
@@ -225,6 +230,11 @@
         <groupId>net.sf.ehcache</groupId>
         <artifactId>ehcache-core</artifactId>
         <version>2.4.3</version>
+      </dependency>
+      <dependency>
+        <groupId>net.sf.ehcache</groupId>
+        <artifactId>ehcache-jgroupsreplication</artifactId>
+        <version>1.5</version>
       </dependency>
       <dependency>
         <groupId>org.springframework.retry</groupId>
@@ -358,7 +368,7 @@
       <dependency>
         <groupId>org.kefirsf</groupId>
         <artifactId>kefirbb</artifactId>
-        <version>1.5</version>
+        <version>1.0</version>
       </dependency>
 
       <!--Mail-->
@@ -465,7 +475,7 @@
       <dependency>
         <groupId>io.qala.datagen</groupId>
         <artifactId>qala-datagen</artifactId>
-        <version>1.10.1</version>
+        <version>1.4.0</version>
         <scope>test</scope>
       </dependency>
     </dependencies>

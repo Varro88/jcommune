@@ -29,8 +29,6 @@ import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.transaction.TransactionConfiguration
 import org.springframework.test.context.web.WebAppConfiguration
 import org.springframework.test.web.servlet.MockMvc
-import org.springframework.test.web.servlet.MvcResult
-import org.springframework.test.web.servlet.ResultMatcher
 import org.springframework.transaction.annotation.Transactional
 import spock.lang.Specification
 
@@ -39,11 +37,9 @@ import javax.servlet.Filter
 import javax.servlet.http.HttpSession
 
 import static org.hamcrest.Matchers.is
-import static org.springframework.test.util.AssertionErrors.assertTrue
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*
 
 /**
  * @author Mikhail Stryzhonok
@@ -64,7 +60,7 @@ class TopicControllerTest extends Specification {
     List<Filter> filters;
 
     def setup() {
-        groups.createPredefinedGroups()
+        groups.create()
     }
 
     def 'test create topic'() {
@@ -83,7 +79,7 @@ class TopicControllerTest extends Specification {
                     .param("topic.title", "title")
                     .param("branchId", branch.id.toString()))
         then: 'User redirected to newly created topic'
-            result.andExpect(status().isMovedTemporarily()).andExpect(redirectedUrlMatches("/topics/\\d"))
+            result.andExpect(status().isMovedTemporarily()).andExpect(redirectedUrl("/topics/1"))
     }
 
     def 'Creation of draft topic should pass'() {
@@ -126,7 +122,8 @@ class TopicControllerTest extends Specification {
                   topicType: TopicTypeName.CODE_REVIEW.name
           ])))
         then:
-          result.andExpect(status().isForbidden())
+          // TODO: check that AccessDeniedException has been thrown
+          result.andExpect(status().isMovedTemporarily())
     }
 
     def 'Deletion of draft topic should pass'() {
@@ -137,13 +134,5 @@ class TopicControllerTest extends Specification {
         then:
           result.andExpect(status().isOk())
                   .andExpect(jsonPath('$.status', is('SUCCESS')))
-    }
-
-    def ResultMatcher redirectedUrlMatches(String expectedUrl) {
-        return new ResultMatcher() {
-            public void match(MvcResult result) {
-                assertTrue("Redirected URL", result.getResponse().getRedirectedUrl().matches(expectedUrl))
-            }
-        };
     }
 }

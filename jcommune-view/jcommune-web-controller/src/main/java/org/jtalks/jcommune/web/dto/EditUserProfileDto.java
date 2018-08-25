@@ -39,7 +39,6 @@ public class EditUserProfileDto {
     private long userId;
     private String username;
     private String avatar;
-    private Long userProfileVersion;
 
     @Valid
     private UserProfileDto userProfileDto;
@@ -59,7 +58,8 @@ public class EditUserProfileDto {
      * @param user edited user
      */
     public EditUserProfileDto(UserProfileDto userProfileDto, JCUser user) {
-        this(user);
+        this.userId = user.getId();
+        this.username = user.getUsername();
         this.userProfileDto = userProfileDto;
     }
 
@@ -69,7 +69,8 @@ public class EditUserProfileDto {
      * @param user edited user
      */
     public EditUserProfileDto(UserSecurityDto userSecurityDto, JCUser user) {
-        this(user);
+        this.userId = user.getId();
+        this.username = user.getUsername();
         this.userSecurityDto = userSecurityDto;
     }
 
@@ -79,7 +80,8 @@ public class EditUserProfileDto {
      * @param user edited user
      */
     public EditUserProfileDto(UserNotificationsDto userNotificationsDto, JCUser user) {
-        this(user);
+        this.userId = user.getId();
+        this.username = user.getUsername();
         this.userNotificationsDto = userNotificationsDto;
     }
 
@@ -89,7 +91,8 @@ public class EditUserProfileDto {
      * @param user edited user
      */
     public EditUserProfileDto(UserContactsDto userContactsDto, JCUser user) {
-        this(user);
+        this.userId = user.getId();
+        this.username = user.getUsername();
         this.userContactsDto = userContactsDto;
     }
 
@@ -117,7 +120,6 @@ public class EditUserProfileDto {
     public EditUserProfileDto(JCUser user) {
         this.userId = user.getId();
         this.username = user.getUsername();
-        this.userProfileVersion = user.getVersion();
     }
 
     /**
@@ -175,6 +177,25 @@ public class EditUserProfileDto {
     }
 
     /**
+     * Get the primary id of the user.
+     *
+     * @return the id
+     */
+    public long getUserId() {
+        return userId;
+    }
+
+    /**
+     * Set the primary id of the user.
+     *
+     * @param userId the id
+     */
+    public void setUserId(long userId) {
+        this.userId = userId;
+    }
+
+
+    /**
      * Returns all the languages available for the user
      * to choose from.
      *
@@ -184,36 +205,39 @@ public class EditUserProfileDto {
         return Language.values();
     }
 
-    public long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(long userId) {
-        this.userId = userId;
-    }
-
+    /**
+     * Get user's name(login).
+     *
+     * @return user's name(login)
+     */
     public String getUsername() {
         return username;
     }
 
+    /**
+     * Set user's name(login).
+     *
+     * @param username user's name
+     */
     public void setUsername(String username) {
         this.username = username;
     }
 
+
+    /**
+     * @return - user avatar
+     */
     public String getAvatar() {
         return avatar;
     }
 
+    /**
+     * Set user avatar.
+     *
+     * @param avatar - user avatar
+     */
     public void setAvatar(String avatar) {
         this.avatar = avatar;
-    }
-
-    public void setUserProfileVersion(Long version) {
-        this.userProfileVersion = version;
-    }
-
-    public Long getUserProfileVersion() {
-        return userProfileVersion;
     }
 
     /**

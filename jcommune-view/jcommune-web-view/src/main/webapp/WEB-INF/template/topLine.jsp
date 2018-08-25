@@ -174,12 +174,7 @@
                 <a id="userGroupsPage" href="${pageContext.request.contextPath}/group/list">
                   <fmt:message key="label.administration.userGroups"/>
                 </a>
-              </li>
-              <li>
-                <a id="spamProtectionPage" href="${pageContext.request.contextPath}/spamprotection">
-                  <fmt:message key="label.spamProtection.title"/>
-                </a>
-              </li>
+                </li>
             </ul>
           </li>
         </jtalks:hasPermission>

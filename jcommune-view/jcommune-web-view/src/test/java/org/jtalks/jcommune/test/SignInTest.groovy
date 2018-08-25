@@ -45,7 +45,7 @@ abstract class SignInTest extends Specification {
     List<Filter> filters
 
     def setup() {
-        groups.createPredefinedGroups()
+        groups.create()
     }
 
     def 'Sign in without activation registration should fail'() {

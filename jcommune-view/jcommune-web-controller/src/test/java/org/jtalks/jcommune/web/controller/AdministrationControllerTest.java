@@ -17,11 +17,15 @@ package org.jtalks.jcommune.web.controller;
 import org.jtalks.common.model.entity.Component;
 import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.model.permissions.BranchPermission;
-import org.jtalks.jcommune.model.dto.*;
+import org.jtalks.jcommune.model.dto.GroupAdministrationDto;
+import org.jtalks.jcommune.model.dto.GroupsPermissions;
+import org.jtalks.jcommune.model.dto.PermissionChanges;
 import org.jtalks.jcommune.model.entity.Branch;
 import org.jtalks.jcommune.model.entity.ComponentInformation;
-import org.jtalks.jcommune.service.*;
+import org.jtalks.jcommune.service.BranchService;
+import org.jtalks.jcommune.service.ComponentService;
 import org.jtalks.jcommune.plugin.api.exceptions.NotFoundException;
+import org.jtalks.jcommune.service.GroupService;
 import org.jtalks.jcommune.service.nontransactional.ImageService;
 import org.jtalks.jcommune.service.security.PermissionManager;
 import org.jtalks.jcommune.web.dto.BranchDto;
@@ -45,13 +49,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.util.*;
 
+import static org.jgroups.util.Util.assertTrue;
 import static org.mockito.Mockito.*;
 import static org.mockito.MockitoAnnotations.initMocks;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
-import static org.testng.AssertJUnit.assertTrue;
 
 /**
  * @author Andrei Alikov
@@ -83,11 +87,7 @@ public class AdministrationControllerTest {
     PermissionManager permissionManager;
     @Mock
     GroupService groupService;
-    @Mock
-    UserService userService;
 
-    @Mock
-    private SpamProtectionService spamProtectionService;
 
     private MockMvc mockMvc;
 
@@ -98,7 +98,7 @@ public class AdministrationControllerTest {
     public void init() {
         initMocks(this);
 
-        administrationController = new AdministrationController(componentService, messageSource, branchService, permissionManager, groupService, spamProtectionService, userService);
+        administrationController = new AdministrationController(componentService, messageSource, branchService, permissionManager,groupService);
     }
 
     @Test
@@ -301,7 +301,6 @@ public class AdministrationControllerTest {
         dto.setPermissionMask(targetPermission.getMask());
         return dto;
     }
-
     @Test
     public void groupAdministrationPageShouldContainListOfGroups() throws Exception {
         setupComponentMock();

@@ -36,8 +36,6 @@ public class CommentDto {
 
     private String formattedCreationDate;
 
-    private  String renderBody;
-
     public CommentDto() {
     }
 
@@ -47,11 +45,6 @@ public class CommentDto {
         this.body = postComment.getBody();
         this.formattedCreationDate = dateTimeTool.format(postComment.getCreationDate());
         this.authorId = postComment.getAuthor().getId();
-    }
-
-    public CommentDto(String body, String renderBody) {
-        this.body = body;
-        this.renderBody = renderBody;
     }
 
     public long getId() {
@@ -78,14 +71,6 @@ public class CommentDto {
         this.body = body;
     }
 
-    public String getRenderBody() {
-        return renderBody;
-    }
-
-    public void setRenderBody(String renderBody) {
-        this.renderBody = renderBody;
-    }
-
     public String getAuthorUsername() {
         return authorUsername;
     }
@@ -108,10 +93,5 @@ public class CommentDto {
 
     public void setFormattedCreationDate(String formattedCreationDate) {
         this.formattedCreationDate = formattedCreationDate;
-    }
-
-    public CommentDto withRenderBody(String renderBody) {
-        this.renderBody = renderBody;
-        return this;
     }
 }

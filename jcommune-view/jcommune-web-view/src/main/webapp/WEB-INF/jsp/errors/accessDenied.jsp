@@ -17,11 +17,10 @@
 <%@ taglib prefix="spring" uri="http://www.springframework.org/tags" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jstl/core_rt" %>
 <%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
-<head>
-    <title>
-        <c:out value="${cmpTitlePrefix}"/>
-        <spring:message code="label.accessDenied.title"/>
-    </title>
+<title>
+    <c:out value="${cmpTitlePrefix}"/>
+    <spring:message code="label.accessDenied.title"/>
+</title>
 </head>
 <body>
 <div class="container">

@@ -17,7 +17,7 @@ package org.jtalks.jcommune.web.controller;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.jtalks.common.model.entity.Component;
-import org.jtalks.common.service.security.SecurityContextFacade;
+import org.jtalks.common.service.security.SecurityContextHolderFacade;
 import org.jtalks.jcommune.model.dto.LoginUserDto;
 import org.jtalks.jcommune.model.dto.RegisterUserDto;
 import org.jtalks.jcommune.model.dto.UserDto;
@@ -43,8 +43,6 @@ import org.springframework.beans.propertyeditors.StringTrimmerEditor;
 import org.springframework.retry.policy.NeverRetryPolicy;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
-import org.springframework.security.web.savedrequest.RequestCache;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -83,8 +81,6 @@ public class UserControllerTest {
     private RetryTemplate retryTemplate;
     private ComponentService componentService;
     private GroupService groupService;
-    private SpamProtectionService spamProtectionService;
-    private RequestCache requestCache;
 
     @BeforeMethod
     public void setUp() throws IOException {
@@ -97,16 +93,13 @@ public class UserControllerTest {
         componentService = mock(ComponentService.class);
         groupService = mock(GroupService.class);
         retryTemplate = new RetryTemplate();
-        spamProtectionService = mock(SpamProtectionService.class);
-        requestCache = new HttpSessionRequestCache();
         retryTemplate.setRetryPolicy(new NeverRetryPolicy());
-        SecurityContextFacade securityFacade = mock(SecurityContextFacade.class);
+        SecurityContextHolderFacade securityFacade = mock(SecurityContextHolderFacade.class);
         SecurityContext securityContext = mock(SecurityContext.class);
         when(securityFacade.getContext()).thenReturn(securityContext);
         when(request.getHeader("X-FORWARDED-FOR")).thenReturn("192.168.1.1");
-        when(spamProtectionService.isEmailInBlackList(anyString())).thenReturn(false);
         userController = new UserController(userService, authenticator, pluginService, userService,
-                mailService, retryTemplate, componentService, groupService, spamProtectionService, requestCache);
+                mailService, retryTemplate, componentService, groupService);
     }
 
     @Test
@@ -333,28 +326,33 @@ public class UserControllerTest {
 
     @Test
     public void testActivateAccount() throws Exception {
+
         JCUser user = new JCUser("username", "password", null);
         user.setPassword("password");
         when(userService.getByUuid(USER_NAME)).thenReturn(user);
         String viewName = userController.activateAccount(USER_NAME, request, response);
-        verify(authenticator, times(1)).activateAccount(user.getUuid());
+        verify(userService, times(1)).activateAccount(USER_NAME);
         verify(userService, times(1)).loginUser(any(LoginUserDto.class), any(MutableHttpRequest.class), eq(response));
         assertEquals("redirect:/", viewName);
     }
 
     @Test
     public void testActivateAccountFail() throws Exception {
-        doThrow(new NotFoundException()).when(userService).getByUuid(anyString());
+        doThrow(new NotFoundException()).when(userService).activateAccount(anyString());
+
         String viewName = userController.activateAccount(USER_NAME, request, response);
+
         assertEquals("errors/activationExpired", viewName);
     }
 
     @Test
     public void testActivateAccountAgain() throws Exception {
+
         JCUser user = new JCUser("username", "password", null);
         user.setEnabled(true);
         when(userService.getByUuid(USER_NAME)).thenReturn(user);
-        doThrow(new UserTriesActivatingAccountAgainException()).when(authenticator).activateAccount(anyString());
+        doThrow(new UserTriesActivatingAccountAgainException()).when(userService).activateAccount(anyString());
+
         String viewName = userController.activateAccount(USER_NAME, request, response);
         assertEquals("redirect:/", viewName);
     }
@@ -364,7 +362,7 @@ public class UserControllerTest {
         when(userService.getCurrentUser()).thenReturn(new JCUser("username", null, null));
         when(request.getHeader("referer")).thenReturn(referer);
 
-        ModelAndView mav = userController.loginPage(request, response);
+        ModelAndView mav = userController.loginPage(request);
 
         assertEquals(mav.getViewName(), "redirect:" + referer);
         verify(userService).getCurrentUser();
@@ -374,7 +372,7 @@ public class UserControllerTest {
     public void testLoginUserNotLogged() {
         when(userService.getCurrentUser()).thenReturn(new AnonymousUser());
 
-        ModelAndView mav = userController.loginPage(request, response);
+        ModelAndView mav = userController.loginPage(request);
 
         assertEquals(mav.getViewName(), UserController.LOGIN);
         verify(userService).getCurrentUser();

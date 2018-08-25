@@ -20,7 +20,6 @@ import org.jtalks.common.model.dao.hibernate.GenericDao;
 import org.jtalks.common.model.entity.User;
 import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.dao.utils.SqlLikeEscaper;
-import org.jtalks.jcommune.model.dto.UserDto;
 import org.jtalks.jcommune.model.entity.JCUser;
 
 import java.util.Collection;
@@ -134,36 +133,13 @@ public class UserHibernateDao extends GenericDao<JCUser>
     @SuppressWarnings("unchecked")
     @Override
     public List<JCUser> findByUsernameOrEmail(String pattern, int count) {
-        pattern = SqlLikeEscaper.escapeControlCharacters(pattern).toLowerCase();
+        pattern = SqlLikeEscaper.escapeControlCharacters(pattern);
         return session().getNamedQuery("searchByEmailOrUsername")
-                .setParameter("pattern", "%" + pattern + "%")
-                .setParameter("exactMatch", pattern)
-                .setParameter("primaryPattern", pattern + "%")
-                .setParameter("secondaryPattern", "%" + pattern + "%")
-                .setParameter("thirdaryPattern", "%" + pattern)
-                .setMaxResults(count)
-                .list();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JCUser loadById(Long id) {
-        return (JCUser) session().load(JCUser.class, id);
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public List<UserDto> findByUsernameOrEmailNotInGroup(String pattern, long groupId, int count) {
-        pattern = SqlLikeEscaper.escapeControlCharacters(pattern).toLowerCase();
-        return session().getNamedQuery("searchByEmailOrUsernameNotInGroupId")
-                .setParameter("groupId", groupId)
-                .setParameter("pattern", "%" + pattern + "%")
-                .setParameter("exactMatch", pattern)
-                .setParameter("primaryPattern", pattern + "%")
-                .setParameter("secondaryPattern", "%" + pattern + "%")
-                .setParameter("thirdaryPattern", "%" + pattern)
+                .setParameter("pattern", "%" + pattern.toLowerCase() + "%")
+                .setParameter("exactMatch", pattern.toLowerCase())
+                .setParameter("primaryPattern", pattern.toLowerCase() + "%")
+                .setParameter("secondaryPattern", "%" + pattern.toLowerCase() + "%")
+                .setParameter("thirdaryPattern", "%" + pattern.toLowerCase())
                 .setMaxResults(count)
                 .list();
     }

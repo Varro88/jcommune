@@ -15,12 +15,13 @@
 package org.jtalks.jcommune.service.transactional;
 
 import com.google.common.collect.Lists;
+import org.apache.commons.lang.StringUtils;
 import org.joda.time.DateTime;
 import org.jtalks.common.model.dao.GroupDao;
 import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.model.entity.User;
-import org.jtalks.common.service.security.SecurityContextFacade;
-import org.jtalks.common.service.security.SecurityContextHolderFacade;
+import org.jtalks.common.security.SecurityService;
+import org.jtalks.common.security.acl.builders.CompoundAclBuilder;
 import org.jtalks.jcommune.model.dao.PostDao;
 import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.dto.LoginUserDto;
@@ -34,12 +35,12 @@ import org.jtalks.jcommune.service.dto.UserInfoContainer;
 import org.jtalks.jcommune.service.dto.UserNotificationsContainer;
 import org.jtalks.jcommune.service.dto.UserSecurityContainer;
 import org.jtalks.jcommune.service.exceptions.MailingFailedException;
+import org.jtalks.jcommune.service.exceptions.UserTriesActivatingAccountAgainException;
 import org.jtalks.jcommune.service.nontransactional.Base64Wrapper;
 import org.jtalks.jcommune.service.nontransactional.EncryptionService;
 import org.jtalks.jcommune.service.nontransactional.MailService;
 import org.jtalks.jcommune.service.nontransactional.MentionedUsers;
-import org.jtalks.jcommune.service.security.SecurityService;
-import org.jtalks.jcommune.service.security.acl.AclManager;
+import org.jtalks.jcommune.service.security.AdministrationGroup;
 import org.jtalks.jcommune.service.util.AuthenticationStatus;
 import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatcher;
@@ -47,7 +48,6 @@ import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletWebRequest;
 import org.testng.annotations.BeforeMethod;
@@ -65,6 +65,8 @@ import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.collection.IsCollectionContaining.hasItems;
+import static org.jtalks.jcommune.service.TestUtils.mockAclBuilder;
+import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Matchers.matches;
@@ -100,12 +102,14 @@ public class TransactionalUserServiceTest {
     private static final String MENTIONING_MESSAGE_WHEN_USER_NOT_FOUND = "This post contains not notified %s mentioning " +
             "and notified %s mentioning";
 
+
     private UserService userService;
-    private SecurityContextFacade securityContextFacade;
     @Mock
     private UserDao userDao;
     @Mock
     private GroupDao groupDao;
+    @Mock
+    private SecurityService securityService;
     @Mock
     private MailService mailService;
     @Mock
@@ -116,16 +120,15 @@ public class TransactionalUserServiceTest {
     private PostDao postDao;
     @Mock
     private Authenticator authenticator;
-    @Mock
-    private AclManager aclManager;
+
 
     @BeforeMethod
     public void setUp() throws Exception {
         initMocks(this);
         when(encryptionService.encryptPassword(PASSWORD))
                 .thenReturn(PASSWORD_MD5_HASH);
-        securityContextFacade = new SecurityContextHolderFacade();
-        SecurityService securityService = new SecurityService(userDao, aclManager, securityContextFacade);
+        CompoundAclBuilder<User> aclBuilder = mockAclBuilder();
+        when(securityService.<User>createAclBuilder()).thenReturn(aclBuilder);
         userService = new TransactionalUserService(
                 userDao,
                 groupDao,
@@ -157,6 +160,7 @@ public class TransactionalUserServiceTest {
     @Test
     public void editUserProfileShouldUpdateHimAndSaveInRepository() throws NotFoundException {
         JCUser user = user(USERNAME);
+        when(securityService.getCurrentUserUsername()).thenReturn(StringUtils.EMPTY);
         when(userDao.getByUsername(anyString())).thenReturn(user);
         when(userDao.getByEmail(EMAIL)).thenReturn(null);
         when(encryptionService.encryptPassword(NEW_PASSWORD)).thenReturn(NEW_PASSWORD_MD5_HASH);
@@ -190,6 +194,7 @@ public class TransactionalUserServiceTest {
     @Test
     public void editUserProfileShouldNotUpdateOtherSettings() throws NotFoundException {
         JCUser user = user(USERNAME);
+        when(securityService.getCurrentUserUsername()).thenReturn(StringUtils.EMPTY);
         when(userDao.getByUsername(anyString())).thenReturn(user);
         when(userDao.getByEmail(EMAIL)).thenReturn(null);
         when(encryptionService.encryptPassword(NEW_PASSWORD))
@@ -233,6 +238,7 @@ public class TransactionalUserServiceTest {
     @Test
     public void editUserProfileShouldNotChangePasswordToNull() throws NotFoundException {
         JCUser user = user(USERNAME);
+        when(securityService.getCurrentUserUsername()).thenReturn(StringUtils.EMPTY);
         when(userDao.getByUsername(anyString())).thenReturn(user);
         when(encryptionService.encryptPassword(null)).thenReturn(null);
         when(userDao.isExist(USER_ID)).thenReturn(Boolean.TRUE);
@@ -316,6 +322,7 @@ public class TransactionalUserServiceTest {
     @Test
     public void testEditUserProfileSameEmail() throws Exception {
         JCUser user = user(USERNAME);
+        when(securityService.getCurrentUserUsername()).thenReturn("");
         when(userDao.getByUsername(anyString())).thenReturn(user);
         when(userDao.getByEmail(EMAIL)).thenReturn(null);
         when(userDao.isExist(USER_ID)).thenReturn(Boolean.TRUE);
@@ -399,6 +406,49 @@ public class TransactionalUserServiceTest {
     }
 
     @Test
+    public void activateAccountShouldEnableUser() throws Exception {
+        JCUser user = new JCUser(USERNAME, EMAIL, PASSWORD);
+        when(userDao.getByUuid(user.getUuid())).thenReturn(user);
+        when(groupDao.getGroupByName(AdministrationGroup.USER.getName())).thenReturn(new Group());
+
+        userService.activateAccount(user.getUuid());
+        assertTrue(user.isEnabled());
+    }
+
+    @Test
+    public void activateAccountShouldAddUserToRegisteredUsersGroup() throws Exception {
+        JCUser user = new JCUser(USERNAME, EMAIL, PASSWORD);
+        when(userDao.getByUuid(user.getUuid())).thenReturn(user);
+        Group registeredUsersGroup = new Group();
+        when(groupDao.getGroupByName(AdministrationGroup.USER.getName())).thenReturn(registeredUsersGroup);
+
+        userService.activateAccount(user.getUuid());
+        assertTrue(user.getGroups().contains(registeredUsersGroup));
+    }
+
+    @Test(expectedExceptions = NotFoundException.class)
+    public void testActivateNotFoundAccountTest() throws NotFoundException, UserTriesActivatingAccountAgainException {
+        when(userDao.getByUsername(USERNAME)).thenReturn(null);
+
+        userService.activateAccount(USERNAME);
+    }
+
+    @Test(expectedExceptions = UserTriesActivatingAccountAgainException.class)
+    public void testActivateAccountAlreadyEnabled() throws NotFoundException, UserTriesActivatingAccountAgainException {
+        JCUser user = new JCUser(USERNAME, EMAIL, PASSWORD);
+        user.setEnabled(true);
+        when(userDao.getByUuid(user.getUuid())).thenReturn(user);
+        Group group = new Group();
+        when(groupDao.getGroupByName(AdministrationGroup.USER.getName())).thenReturn(group);
+
+        userService.activateAccount(user.getUuid());
+
+        assertTrue(user.isEnabled());
+        verify(groupDao, never()).saveOrUpdate(any(Group.class));
+        assertFalse(group.getUsers().contains(user));
+    }
+
+    @Test
     public void testNonActivatedAccountExpiration() throws NotFoundException {
         JCUser user1 = new JCUser(USERNAME, EMAIL, PASSWORD);
         user1.setRegistrationDate(new DateTime());
@@ -417,20 +467,24 @@ public class TransactionalUserServiceTest {
     }
 
     @Test
-    public void shouldReturnUserInfoIfAuthenticated() {
+    public void testGetCurrentUser() {
         JCUser expected = user(USERNAME);
-        securityContextFacade.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(new UserInfo(expected), null));
-        when(userDao.loadById(anyLong())).thenReturn(expected);
+
+        when(securityService.getCurrentUserUsername()).thenReturn(USERNAME);
+        when(userDao.getByUsername(USERNAME)).thenReturn(expected);
+
         JCUser actual = userService.getCurrentUser();
+
         assertEquals(actual, expected);
     }
 
     @Test
-    public void shouldReturnAnonymousUserIfNotAuthenticated() {
-        securityContextFacade.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(null, null));
+    public void testGetCurrentUserForAnonymous() {
+        when(securityService.getCurrentUserUsername()).thenReturn(null);
+
         JCUser user = userService.getCurrentUser();
         assertNotNull(user);
-        assertTrue(user.isAnonymous());
+        assertTrue(user instanceof AnonymousUser);
     }
 
     @Test

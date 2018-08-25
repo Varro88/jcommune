@@ -4,7 +4,7 @@
   <parent>
     <artifactId>jcommune</artifactId>
     <groupId>org.jtalks.jcommune</groupId>
-    <version>3.13-SNAPSHOT</version>
+    <version>3.10-SNAPSHOT</version>
   </parent>
   <artifactId>jcommune-model</artifactId>
   <name>${project.artifactId}</name>
@@ -21,6 +21,10 @@
     <dependency>
       <groupId>org.jtalks.common</groupId>
       <artifactId>jtalks-common-service</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.jtalks.common</groupId>
+      <artifactId>jtalks-common-security</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework</groupId>
@@ -124,6 +128,10 @@
     <dependency>
       <groupId>net.sf.ehcache</groupId>
       <artifactId>ehcache-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.sf.ehcache</groupId>
+      <artifactId>ehcache-jgroupsreplication</artifactId>
     </dependency>
     <!--
         Used for cache monitoring. Has conflicts with used version of slf4j.

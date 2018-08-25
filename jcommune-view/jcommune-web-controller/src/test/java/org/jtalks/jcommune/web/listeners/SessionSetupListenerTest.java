@@ -18,6 +18,7 @@ import org.jtalks.common.model.entity.Property;
 import org.jtalks.jcommune.model.dao.PropertyDao;
 import org.jtalks.jcommune.model.entity.JCommuneProperty;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.web.context.WebApplicationContext;
 import org.testng.annotations.BeforeMethod;
@@ -61,7 +62,7 @@ public class SessionSetupListenerTest {
         sessionTimeoutProperty.setPropertyDao(propertyDao);
         sessionTimeoutProperty.setName(PROPERTY_NAME);
 
-        when(context.getBean("sessionTimeoutProperty")).thenReturn(sessionTimeoutProperty);
+        when(context.getBean(Mockito.anyString())).thenReturn(sessionTimeoutProperty);
 
         session = new MockHttpSession();
         session.getServletContext().setAttribute(
@@ -69,7 +70,6 @@ public class SessionSetupListenerTest {
                 context);
 
         event = new HttpSessionEvent(session);
-        SessionSetupListener.resetSessionTimeoutProperty();
     }
 
     @Test

@@ -15,32 +15,25 @@
 package org.jtalks.jcommune.test.service;
 
 import org.jtalks.common.model.entity.Group;
-import org.jtalks.common.model.entity.User;
 import org.jtalks.jcommune.model.dao.GroupDao;
+import org.jtalks.jcommune.service.security.AdministrationGroup;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
 
-
-import javax.annotation.Nonnull;
-import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-
-import static org.jtalks.jcommune.service.security.AdministrationGroup.PREDEFINED_GROUP_NAMES;
 
 /**
  * @author Mikhail Stryzhonok
  */
-@Transactional
 public class GroupsService {
 
-    private @Autowired GroupDao groupDao;
+    @Autowired
+    private GroupDao groupDao;
 
-    public void createPredefinedGroups() {
-        for (String predefinedGroupName : PREDEFINED_GROUP_NAMES) {
-            createIfNotExist(predefinedGroupName);
-        }
+    public void create() {
+        groupDao.saveOrUpdate(new Group(AdministrationGroup.ADMIN.getName()));
+        groupDao.saveOrUpdate(new Group(AdministrationGroup.BANNED_USER.getName()));
+        groupDao.saveOrUpdate(new Group(AdministrationGroup.USER.getName()));
     }
 
     public List<Long> getIdsByName(List<String> groups) {
@@ -53,20 +46,5 @@ public class GroupsService {
 
     public Long getIdByName(String groupName) {
         return groupDao.getGroupByName(groupName).getId();
-    }
-
-    public Group getGroupByName(String groupName) {
-        return groupDao.getGroupByName(groupName);
-    }
-
-    private void createIfNotExist(String name){
-        List<Group> groups = groupDao.getByName(name);
-        if (groups.isEmpty()) groupDao.saveOrUpdate(new Group(name));
-    }
-
-    public static class UserByNameComparator implements Comparator<User>, Serializable {
-        public int compare(@Nonnull User u1, @Nonnull User u2) {
-            return u1.getUsername().compareTo(u2.getUsername());
-        }
     }
 }

@@ -14,37 +14,27 @@
  */
 package org.jtalks.jcommune.service.transactional;
 
-import com.google.common.collect.Sets;
 import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.model.entity.User;
+import org.jtalks.common.security.acl.AclManager;
+import org.jtalks.common.security.acl.sids.UserGroupSid;
+import org.jtalks.common.security.acl.sids.UserSid;
 import org.jtalks.common.service.exceptions.NotFoundException;
 import org.jtalks.common.service.transactional.AbstractTransactionalEntityService;
-import org.jtalks.common.validation.ValidationError;
-import org.jtalks.common.validation.ValidationException;
 import org.jtalks.jcommune.model.dao.GroupDao;
 import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.dto.GroupAdministrationDto;
-import org.jtalks.jcommune.model.dto.PageRequest;
 import org.jtalks.jcommune.model.dto.SecurityGroupList;
-import org.jtalks.jcommune.model.dto.UserDto;
 import org.jtalks.jcommune.model.entity.JCUser;
-import org.jtalks.jcommune.model.entity.UserInfo;
 import org.jtalks.jcommune.service.GroupService;
-import org.jtalks.jcommune.service.exceptions.OperationIsNotAllowedException;
-import org.jtalks.jcommune.service.security.AdministrationGroup;
-import org.jtalks.jcommune.service.security.SecurityService;
-import org.jtalks.jcommune.service.security.acl.AclManager;
-import org.jtalks.jcommune.service.security.acl.sids.UserGroupSid;
-import org.jtalks.jcommune.service.security.acl.sids.UserSid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import ru.javatalks.utils.general.Assert;
 
+import java.util.HashMap;
 import java.util.List;
-
+import java.util.Map;
 
 /**
  * @author alexander afanasiev
@@ -55,8 +45,6 @@ public class TransactionalGroupService extends AbstractTransactionalEntityServic
 
     private final AclManager manager;
     private final UserDao userDao;
-    private final SecurityService securityService;
-    private final Logger logger = LoggerFactory.getLogger(getClass());
     
     /**
      * Create an instance of entity based service
@@ -65,17 +53,14 @@ public class TransactionalGroupService extends AbstractTransactionalEntityServic
      *                   operations.
      * @param manager - ACL manager to operate with sids
      * @param userDao - to perform all CRUD operations with users
-     * @param securityService - to get current user information.
      * 
      */
     public TransactionalGroupService(GroupDao groupDao,
                                      AclManager manager,
-                                     UserDao userDao,
-                                     SecurityService securityService) {
+                                     UserDao userDao) {
         this.dao = groupDao;
         this.manager = manager;
         this.userDao = userDao;
-        this.securityService = securityService;
     }
 
     /**
@@ -107,30 +92,21 @@ public class TransactionalGroupService extends AbstractTransactionalEntityServic
         return dao.getByName(name);
     }
 
-    @Override
-    public Page<UserDto> getPagedGroupUsers(long id, PageRequest pageRequest) {
-        int totalCount = dao.getGroupUserCount(id);
-        pageRequest.adjustPageNumber(totalCount);
-        return new PageImpl<>(dao.getGroupUsersPage(id, pageRequest), pageRequest, totalCount);
-    }
-
     /**
      * {@inheritDoc}
      */
     @Override
     public void deleteGroup(Group group) throws NotFoundException {
         Assert.throwIfNull(group, "group");
-        if (!isGroupEditable(group.getName())) {
-            logger.warn("Attempt to delete pre-defined usergoup {}", group.getName());
-            throw new OperationIsNotAllowedException("Pre-defined usergoup " + group.getName() + " cannot be deleted");
-        }
+        
         for (User user : group.getUsers()) {
             user.getGroups().remove(group);
             userDao.saveOrUpdate((JCUser) user);
         }
         dao.delete(group);
 
-        UserInfo currentUser = securityService.getCurrentUserBasicInfo();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = (User) auth.getPrincipal();
         UserGroupSid sid = new UserGroupSid(group);
         UserSid sidHeier = new UserSid(currentUser);
         try {
@@ -154,47 +130,7 @@ public class TransactionalGroupService extends AbstractTransactionalEntityServic
      * {@inheritDoc}
      */
     @Override
-    public void saveOrUpdate(GroupAdministrationDto dto) throws NotFoundException {
-        assertGroupNameUnique(dto);
-        Group group = dto.getId() != null ? dao.get(dto.getId()) : new Group();
-        if (group == null) {
-            throw new NotFoundException("Group with id " + dto.getId() + " is not found");
-        }
-        if (!isGroupEditable(group.getName())) {
-            logger.warn("Attempt to edit pre-defined usergoup {}", group.getName());
-            throw new OperationIsNotAllowedException("Pre-defined usergoup " + group.getName() + " is not editable");
-        }
-        dao.saveOrUpdate(dto.fillEntity(group));
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public List<GroupAdministrationDto> getGroupNamesWithCountOfUsers() {
-        List<GroupAdministrationDto> groupNamesWithCountOfUsers = dao.getGroupNamesWithCountOfUsers();
-        setEditableFlag(groupNamesWithCountOfUsers);
-        return groupNamesWithCountOfUsers;
-    }
-
-    private void setEditableFlag(List<GroupAdministrationDto> groups) {
-        for (GroupAdministrationDto dto : groups) {
-            dto.setEditable(isGroupEditable(dto.getName()));
-        }
-    }
-
-    private boolean isGroupEditable(String groupName) {
-        return !AdministrationGroup.isPredefinedGroup(groupName);
-    }
-
-    /**
-     * Checks group name for uniqueness.
-     * @throws ValidationException if group name is already used
-     */
-    private void assertGroupNameUnique(GroupAdministrationDto dto) {
-        Group existingGroup = dao.getGroupByName(dto.getName());
-        if (!(existingGroup == null || (dto.getId() != null && existingGroup.getId() == dto.getId()))) {
-            throw new ValidationException(Sets.newHashSet((new ValidationError("name", "group.already_exists"))));
-        }
+        return dao.getGroupNamesWithCountOfUsers();
     }
 }

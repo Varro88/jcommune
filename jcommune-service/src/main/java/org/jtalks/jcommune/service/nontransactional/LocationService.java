@@ -16,9 +16,9 @@
 package org.jtalks.jcommune.service.nontransactional;
 
 import org.jtalks.common.model.entity.Entity;
-import org.jtalks.jcommune.model.entity.UserInfo;
+import org.jtalks.jcommune.model.entity.JCUser;
 import org.jtalks.jcommune.plugin.api.service.PluginLocationService;
-import org.jtalks.jcommune.service.security.SecurityService;
+import org.jtalks.jcommune.service.UserService;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.stereotype.Component;
 
@@ -33,17 +33,18 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * @author Andrey Kluev
  */
+@Component
 public class LocationService implements PluginLocationService {
-    private final SecurityService securityService;
-    private final SessionRegistry sessionRegistry;
-    private final Map<UserInfo, String> registerUserMap = new ConcurrentHashMap<>();
+    private UserService userService;
+    private SessionRegistry sessionRegistry;
+    private Map<JCUser, String> registerUserMap = new ConcurrentHashMap<>();
 
     /**
-     * @param securityService for retrieving basic info about current user
+     * @param userService     to figure out the current user
      * @param sessionRegistry session registry to get all the users logged in
      */
-    public LocationService(SecurityService securityService, SessionRegistry sessionRegistry) {
-        this.securityService = securityService;
+    public LocationService(UserService userService, SessionRegistry sessionRegistry) {
+        this.userService = userService;
         this.sessionRegistry = sessionRegistry;
     }
 
@@ -56,18 +57,18 @@ public class LocationService implements PluginLocationService {
      * @return Users, who're viewing the page for entity passed. Will return empty list if
      *         there are no viewers or view tracking is not supported for this entity type
      */
-    public List<UserInfo> getUsersViewing(Entity entity) {
-        List<UserInfo> viewList = new ArrayList<>();
-        UserInfo currentUser = securityService.getCurrentUserBasicInfo();
-        /*
+    public List<JCUser> getUsersViewing(Entity entity) {
+        List<JCUser> viewList = new ArrayList<>();
+        JCUser currentUser = userService.getCurrentUser();
+        /**
          * This condition does not allow Anonymous add to the map of active users.
          */
-        if (currentUser != null) {
+        if (!currentUser.isAnonymous()) {
             registerUserMap.put(currentUser, entity.getUuid());
         }
 
         for (Object o : sessionRegistry.getAllPrincipals()) {
-            UserInfo user = (UserInfo) o;
+            JCUser user = (JCUser) o;
             if (entity.getUuid().equals(registerUserMap.get(user))) {
                 viewList.add(user);
             }
@@ -81,19 +82,6 @@ public class LocationService implements PluginLocationService {
      * topic/branch viewer's list until explicitly added
      */
     public void clearUserLocation() {
-        UserInfo currentUser = securityService.getCurrentUserBasicInfo();
-        clearUserLocation(currentUser);
-    }
-
-    /**
-     * Clears forum location for the given user. After the call, user
-     * passed as param will be excluded from all the topic/branch viewer's list
-     *
-     * @param user to clean location.
-     */
-    public void clearUserLocation(Object user) {
-        if (user instanceof UserInfo) {
-            registerUserMap.remove(user);
-        }
+        registerUserMap.remove(userService.getCurrentUser());
     }
 }

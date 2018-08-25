@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import org.jtalks.jcommune.model.dto.UserDto;
 
 /**
  * @author Andrei Alikov
@@ -30,60 +29,87 @@ import org.jtalks.jcommune.model.dto.UserDto;
 public class GroupDto {
     private long id;
     private String name;
-    private List<UserDto> users;
 
+    /**
+     * Instantiates new GroupDto object based on the Group object
+     * @param group source data for the DTO object
+     */
     public GroupDto(Group group) {
         this.id = group.getId();
         this.name = group.getName();
     }
 
-    public GroupDto(long id, String name, List<UserDto> users) {
+    /**
+     * Instantiates new GroupDto object
+     * @param id id of the group
+     * @param name name of the group
+     */
+    public GroupDto(long id, String name) {
         this.id = id;
         this.name = name;
-        this.users = users;
     }
 
+    /**
+     * Default constructor. Needed for initialization from request body.
+     */
     public GroupDto() {
     }
 
+    /**
+     * Gets id of the group
+     * @return id of the group
+     */
     public long getId() {
         return id;
     }
 
+    /**
+     * Sets id of the group
+     * @param id id of the group
+     */
     public void setId(long id) {
         this.id = id;
     }
 
+    /**
+     * Gets name of the group
+     * @return name of the group
+     */
     public String getName() {
         return name;
     }
 
+    /**
+     * Sets name of the group
+     * @param name name of the group
+     */
     public void setName(String name) {
         this.name = name;
     }
 
-    public List<UserDto> getUsers() {
-        return users;
-    }
-
-    public void setUsers(List<UserDto> users) {
-        this.users = users;
-    }
-
-    public static List<GroupDto> convertToGroupDtoList(List<Group> groups, Comparator<GroupDto> comparator) {
-        List<GroupDto> groupDtoList = new ArrayList<>();
-        if (groups == null) {
-            return groupDtoList;
-        }
+    /**
+     * Converts list of the Group objects to the list of the GroupDto objects
+     * @param groups source information about the Groups
+     * @param sortByName if true than result list will be sorted by the group names
+     * @return result list with GroupDto based on the source list of the Group objects
+     */
+    public static List<GroupDto> convertGroupList(List<Group> groups, boolean sortByName) {
+        List<GroupDto> groupDtoList = new ArrayList<GroupDto>();
         for (Group group: groups) {
             groupDtoList.add(new GroupDto(group));
         }
-        if (comparator != null) {
-            Collections.sort(groupDtoList, comparator);
+
+        if (sortByName) {
+            Collections.sort(groupDtoList, BY_NAME_COMPARATOR);
         }
+
         return groupDtoList;
     }
 
+
+    /**
+     * Comparator comparing two objects by their names
+     */
     public static Comparator<GroupDto> BY_NAME_COMPARATOR = new Comparator<GroupDto>() {
         @Override
         public int compare(GroupDto o1, GroupDto o2) {

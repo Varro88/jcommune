@@ -5,7 +5,7 @@
   <parent>
     <artifactId>jcommune-view</artifactId>
     <groupId>org.jtalks.jcommune</groupId>
-    <version>3.13-SNAPSHOT</version>
+    <version>3.10-SNAPSHOT</version>
   </parent>
   <artifactId>jcommune-web-view</artifactId>
   <packaging>war</packaging>
@@ -135,10 +135,6 @@
     <dependency>
       <groupId>io.qala.datagen</groupId>
       <artifactId>qala-datagen</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.unitils</groupId>
-      <artifactId>unitils-core</artifactId>
     </dependency>
   </dependencies>
 

@@ -99,9 +99,6 @@
                     <c:when test="${param.reg_error == 3}">
                       <spring:message code="label.honeypot.not.null"/>
                     </c:when>
-                    <c:when test="${param.reg_error == 4}">
-                      <spring:message code="label.spamProtection.block.message"/>
-                    </c:when>
                   </c:choose>
               </span>
           </c:if>

@@ -4,7 +4,7 @@
   <parent>
     <artifactId>jcommune</artifactId>
     <groupId>org.jtalks.jcommune</groupId>
-    <version>3.13-SNAPSHOT</version>
+    <version>3.10-SNAPSHOT</version>
   </parent>
   <artifactId>jcommune-service</artifactId>
   <name>${project.artifactId}</name>
@@ -66,10 +66,6 @@
       <artifactId>mockito-all</artifactId>
     </dependency>
     <dependency>
-      <groupId>io.qala.datagen</groupId>
-      <artifactId>qala-datagen</artifactId>
-    </dependency>
-    <dependency>
       <groupId>org.springframework.security</groupId>
       <artifactId>spring-security-core</artifactId>
     </dependency>
@@ -82,12 +78,12 @@
       <artifactId>spring-security-acl</artifactId>
     </dependency>
     <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-web</artifactId>
+      <groupId>net.sf.ehcache</groupId>
+      <artifactId>ehcache-core</artifactId>
     </dependency>
     <dependency>
       <groupId>net.sf.ehcache</groupId>
-      <artifactId>ehcache-core</artifactId>
+      <artifactId>ehcache-jgroupsreplication</artifactId>
     </dependency>
     <dependency>
       <groupId>org.hsqldb</groupId>
@@ -134,6 +130,12 @@
       <groupId>org.kefirsf</groupId>
       <artifactId>kefirbb</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.jtalks.common</groupId>
+      <artifactId>jtalks-common-security</artifactId>
+    </dependency>
+
+
     <dependency>
       <groupId>org.jclarion</groupId>
       <artifactId>image4j</artifactId>
