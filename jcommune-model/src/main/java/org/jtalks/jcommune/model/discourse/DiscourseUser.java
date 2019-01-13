@@ -14,6 +14,8 @@
  */
 package org.jtalks.jcommune.model.discourse;
 
+import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.jtalks.jcommune.model.entity.JCUser;
 import org.jtalks.jcommune.model.entity.UserContact;
 
@@ -201,13 +203,14 @@ public class DiscourseUser {
         this.name = jcommuneUser.getFirstName() + " " + jcommuneUser.getLastName();
     }
 
-    public static java.time.LocalDateTime jodaToJavaLocalDateTime( org.joda.time.DateTime dateTime ) {
+    public static java.time.LocalDateTime jodaToJavaLocalDateTime( DateTime dateTime ) {
+        DateTime utcDateTime = dateTime.withZone(DateTimeZone.UTC);
         return java.time.LocalDateTime.of(
-                dateTime.getYear(),
-                dateTime.getMonthOfYear(),
-                dateTime.getDayOfMonth(),
-                dateTime.getHourOfDay(),
-                dateTime.getMinuteOfHour(),
-                dateTime.getSecondOfMinute());
+                utcDateTime.getYear(),
+                utcDateTime.getMonthOfYear(),
+                utcDateTime.getDayOfMonth(),
+                utcDateTime.getHourOfDay(),
+                utcDateTime.getMinuteOfHour(),
+                utcDateTime.getSecondOfMinute());
     }
 }

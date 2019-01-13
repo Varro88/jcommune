@@ -28,6 +28,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Data migration for discourse engine.
@@ -47,8 +49,8 @@ public class DiscourseMigration {
 
         int start, count;
         try {
-            start = Integer.getInteger(System.getProperty("start"));
-            count = Integer.getInteger(System.getProperty("count"));
+            start = Integer.parseInt(System.getProperty("start"));
+            count = Integer.parseInt(System.getProperty("count"));
         }
         catch (Exception e) {
             throw new RuntimeException("Error when parsing command line args: " + e.getMessage());
@@ -61,10 +63,10 @@ public class DiscourseMigration {
 
         for(int i = start; i < maxExistingUserId; i+= count ) {
             int to = i + count;
-            int[] userIds = migration.getUsersIds(i, to);
-            for(int j = 0; j < userIds.length; j++) {
+            List<Integer> userIds = migration.getUsersIds(i, to);
+            for(int j = 0; j < userIds.size(); j++) {
                 try {
-                    JCUser jcommuneUser = migration.getJcommuneUser(j);
+                    JCUser jcommuneUser = migration.getJcommuneUser(userIds.get(j));
                     if (jcommuneUser != null) {
                         migration.addUser(jcommuneUser);
                     }
@@ -82,7 +84,7 @@ public class DiscourseMigration {
             PreparedStatement ps = mysqlConnection.prepareStatement("SELECT MAX(ID) FROM USERS");
             ResultSet rs = ps.executeQuery();
             if(rs.next()) {
-               maxId = rs.getInt(0);
+               maxId = rs.getInt(1);
             }
         }
         catch(Exception e) {
@@ -91,15 +93,19 @@ public class DiscourseMigration {
          return maxId;
     }
 
-    private int[] getUsersIds(int from, int to) {
+    private List<Integer> getUsersIds(int from, int to) {
         try {
-            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT ID FROM USERS" +
+            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT ID FROM USERS " +
                     "WHERE ID >= ? AND ID < ?");
             ps.setInt(1, from);
-            ps.setInt(1, to);
+            ps.setInt(2, to);
             ResultSet rs = ps.executeQuery();
-            Array a = rs.getArray(0);
-            int[] ids = (int[])a.getArray();
+            ArrayList<Integer> ids = new ArrayList<Integer>();
+            while (rs.next())
+            {
+                ids.add(rs.getInt("ID"));
+            };
+
             return ids;
         }
         catch (Exception e) {
@@ -158,7 +164,7 @@ public class DiscourseMigration {
 
             //user_contacts
             String contactValue = rs.getString("VALUE");
-            if(contactValue != "" && contactValue != null) {
+            if(contactValue != null && !contactValue.isEmpty()) {
                 UserContactType websiteContactType = new UserContactType();
                 websiteContactType.setId(WEBSITE_CONTACT_ID);
                 UserContact websiteContact = new UserContact(contactValue, websiteContactType);
@@ -254,7 +260,7 @@ public class DiscourseMigration {
             //same as for default user
             ps.setBoolean(3, true);
             ps.setInt(4, 10800);
-            ps.setInt(5, 24000);
+            ps.setInt(5, 240000);
             ps.setInt(6, 2880);
             ps.setInt(7, 0);
             ps.setInt(8, 2);

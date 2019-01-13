@@ -32,6 +32,10 @@ public class ConnectionFactory {
     public static final String MYSQL_URL = "jdbc:mysql://127.0.0.1:3306/jcommune";
     public static final String MYSQL_USER = "root";
     public static final String MYSQL_PASS = "";
+
+    public static Connection discourseConnection = null;
+    public static Connection jcommuneConnection = null;
+
     /**
      * Get a connection to PostgresqlDatabase
      * @return Connection object
@@ -39,8 +43,11 @@ public class ConnectionFactory {
     public static Connection getPostgresqlConnection()
     {
         try {
-            DriverManager.registerDriver(new Driver());
-            return DriverManager.getConnection(POSTGRESQL_URL, POSTGRESQL_USER, POSTGRESQL_PASS);
+            if (discourseConnection == null) {
+                DriverManager.registerDriver(new Driver());
+                discourseConnection =  DriverManager.getConnection(POSTGRESQL_URL, POSTGRESQL_USER, POSTGRESQL_PASS);
+            }
+            return discourseConnection;
         } catch (SQLException ex) {
             throw new RuntimeException("Error connecting to the Postgresql database: " + ex.getMessage());
         }
@@ -53,8 +60,11 @@ public class ConnectionFactory {
     public static Connection getMysqlConnection()
     {
         try {
-            DriverManager.registerDriver(new Driver());
-            return DriverManager.getConnection(MYSQL_URL, MYSQL_USER, MYSQL_PASS);
+            if (jcommuneConnection == null) {
+                DriverManager.registerDriver(new Driver());
+                jcommuneConnection =  DriverManager.getConnection(MYSQL_URL, MYSQL_USER, MYSQL_PASS);;
+            }
+            return jcommuneConnection;
         } catch (SQLException ex) {
             throw new RuntimeException("Error connecting to the MySQL database: " + ex.getMessage());
         }
