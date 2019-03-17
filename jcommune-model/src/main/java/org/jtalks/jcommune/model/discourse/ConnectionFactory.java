@@ -44,7 +44,6 @@ public class ConnectionFactory {
     {
         try {
             if (discourseConnection == null) {
-                DriverManager.registerDriver(new Driver());
                 discourseConnection =  DriverManager.getConnection(POSTGRESQL_URL, POSTGRESQL_USER, POSTGRESQL_PASS);
             }
             return discourseConnection;

@@ -28,6 +28,7 @@ import java.util.Iterator;
  * @author Artem Reznyk
  */
 public class DiscourseUser {
+    private static final int bannedGroupId = 123456789;
 
     private int id;
 
@@ -167,10 +168,6 @@ public class DiscourseUser {
         this.emailPrivateMessages = emailPrivateMessages;
     }
 
-    private static final int bannedGroupId = 123456789;
-    private static final int websiteContactId = 17;
-    private static final String websiteContactName = "Website";
-
     public DiscourseUser(JCUser jcommuneUser) {
         this.id = (int)jcommuneUser.getId();
         this.username = jcommuneUser.getUsername();
@@ -178,21 +175,21 @@ public class DiscourseUser {
         //this.email = jcommuneUser.getEmail();
         this.email = jcommuneUser.getId() + "@jcommune-mail.org";
 
-        this.updatedAt = jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
+        this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
         this.active = jcommuneUser.isEnabled();
-        this.lastSeenAt = jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
+        this.lastSeenAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
         if (jcommuneUser.getRole().equals("ADMIN_ROLE")) {
             this.admin = true;
         }
-        this.previousVisitAt = jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
+        this.previousVisitAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
         if (jcommuneUser.getGroupsIDs().contains(bannedGroupId)) {
             this.blocked = true;
         }
-        this.firstSeenAt = jodaToJavaLocalDateTime(jcommuneUser.getRegistrationDate());
+        this.firstSeenAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getRegistrationDate());
 
         this.location = jcommuneUser.getLocation();
         for(UserContact contact: jcommuneUser.getContacts()) {
-            if(contact.getType().getId() == DiscourseMigration.WEBSITE_CONTACT_ID) {
+            if(contact.getType().getId() == UsersMigration.WEBSITE_CONTACT_ID) {
                 this.website = contact.getValue();
                 break;
             }
@@ -201,16 +198,5 @@ public class DiscourseUser {
         this.emailPrivateMessages = jcommuneUser.isSendPmNotification();
 
         this.name = jcommuneUser.getFirstName() + " " + jcommuneUser.getLastName();
-    }
-
-    public static java.time.LocalDateTime jodaToJavaLocalDateTime( DateTime dateTime ) {
-        DateTime utcDateTime = dateTime.withZone(DateTimeZone.UTC);
-        return java.time.LocalDateTime.of(
-                utcDateTime.getYear(),
-                utcDateTime.getMonthOfYear(),
-                utcDateTime.getDayOfMonth(),
-                utcDateTime.getHourOfDay(),
-                utcDateTime.getMinuteOfHour(),
-                utcDateTime.getSecondOfMinute());
     }
 }
