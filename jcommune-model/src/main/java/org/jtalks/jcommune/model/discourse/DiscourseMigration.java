@@ -39,8 +39,9 @@ public final class DiscourseMigration {
         mysqlConnection = ConnectionFactory.getMysqlConnection();
         postgresqlConnection = ConnectionFactory.getPostgresqlConnection();
 
-        //startUsersMigration();
+        startUsersMigration();
         startPostsMigration();
+        startTopicsMigration();
     }
 
     public static void startUsersMigration() {
@@ -67,6 +68,19 @@ public final class DiscourseMigration {
         }
         PostsMigration postsMigration = new PostsMigration(mysqlConnection, postgresqlConnection);
         postsMigration.startPostsMigration(firstPostId, postsPerRequest);
+    }
+
+    public static void startTopicsMigration() {
+        int firstTopicId, topicsPerRequest;
+        try {
+            firstTopicId = Integer.parseInt(System.getProperty("firstTopicId"));
+            topicsPerRequest = Integer.parseInt(System.getProperty("topicsPerRequest"));
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Error when parsing command line args: " + e.getMessage());
+        }
+        TopicsMigration topicsMigration = new TopicsMigration(mysqlConnection, postgresqlConnection);
+        topicsMigration.startTopicsMigration(firstTopicId, topicsPerRequest);
     }
 
     public static java.time.LocalDateTime jodaToJavaLocalDateTime( DateTime dateTime ) {
