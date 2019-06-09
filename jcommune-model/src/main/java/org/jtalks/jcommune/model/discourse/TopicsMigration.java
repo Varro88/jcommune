@@ -35,7 +35,8 @@ public class TopicsMigration {
             if(to > lastTopicId) {
                 to = lastTopicId;
             }
-            List<Integer> topicIds = getTopicsIds(i, to);
+            String sql = "SELECT TOPIC_ID FROM TOPIC WHERE TOPIC_ID >= ? AND TOPIC_ID < ?";
+            List<Integer> topicIds = DiscourseMigration.getIds(sql, i, to);
             for(int j = 0; j < topicIds.size(); j++) {
                 try {
                     Topic jcommuneTopic = getJcommuneTopic(topicIds.get(j));
@@ -113,27 +114,6 @@ public class TopicsMigration {
         return maxId;
     }
 
-    private List<Integer> getTopicsIds(int from, int to) {
-        try {
-            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT TOPIC_ID FROM TOPIC " +
-                    "WHERE TOPIC_ID >= ? AND TOPIC_ID < ?");
-            ps.setInt(1, from);
-            ps.setInt(2, to);
-            ResultSet rs = ps.executeQuery();
-            ArrayList<Integer> ids = new ArrayList<Integer>();
-            while (rs.next())
-            {
-                ids.add(rs.getInt("TOPIC_ID"));
-            };
-
-            return ids;
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Can't get list of ids for topics in JCommune " +
-                    "(from=" + String.valueOf(from) + ", to=" + String.valueOf(to) + "): " + e.getMessage());
-        }
-    }
-
     private Topic getJcommuneTopic(int id) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
@@ -142,7 +122,7 @@ public class TopicsMigration {
                             "FROM TOPIC " +
                             "INNER JOIN POST " +
                             "ON TOPIC.TOPIC_ID = POST.TOPIC_ID " +
-                            "WHERE TOPIC.TOPIC_ID = ? " +
+                            "WHERE TOPIC.TOPIC_ID = ? AND TOPIC.TYPE != 'Code review'" +
                             "GROUP BY POST.TOPIC_ID, USER_CREATED " +
                             "ORDER BY TOPIC.CREATION_DATE DESC " +
                             "LIMIT 1");

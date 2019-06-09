@@ -19,10 +19,12 @@ import org.joda.time.DateTimeZone;
 
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.kefirsf.bb.BBProcessorFactory;
-import org.kefirsf.bb.TextProcessor;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Data migration for discourse engine.
@@ -35,6 +37,8 @@ public final class DiscourseMigration {
     private static Connection mysqlConnection;
     private static Connection postgresqlConnection;
 
+    public final static int COMMENTS_ID_SHIFT = 1000000;
+
     public static void main(String[] args) {
         mysqlConnection = ConnectionFactory.getMysqlConnection();
         postgresqlConnection = ConnectionFactory.getPostgresqlConnection();
@@ -42,6 +46,7 @@ public final class DiscourseMigration {
         startUsersMigration();
         startPostsMigration();
         startTopicsMigration();
+        startCommentsMigration();
     }
 
     public static void startUsersMigration() {
@@ -51,7 +56,8 @@ public final class DiscourseMigration {
             usersPerRequest = Integer.parseInt(System.getProperty("usersPerRequest"));
         }
         catch (Exception e) {
-            throw new RuntimeException("Error when parsing command line args: " + e.getMessage());
+            System.out.println("Can't parse command line args for users: " + e.getMessage());
+            return;
         }
         UsersMigration usersMigration = new UsersMigration(mysqlConnection, postgresqlConnection);
         usersMigration.startUsersMigration(firstUserId, usersPerRequest);
@@ -64,10 +70,25 @@ public final class DiscourseMigration {
             postsPerRequest = Integer.parseInt(System.getProperty("postsPerRequest"));
         }
         catch (Exception e) {
-            throw new RuntimeException("Error when parsing command line args: " + e.getMessage());
+            System.out.println("Can't parse command line args for posts: " + e.getMessage());
+            return;
         }
         PostsMigration postsMigration = new PostsMigration(mysqlConnection, postgresqlConnection);
         postsMigration.startPostsMigration(firstPostId, postsPerRequest);
+    }
+
+    public static void startCommentsMigration() {
+        int firstCommentId, commentsPerRequest;
+        try {
+            firstCommentId = Integer.parseInt(System.getProperty("firstCommentId"));
+            commentsPerRequest = Integer.parseInt(System.getProperty("commentsPerRequest"));
+        }
+        catch (Exception e) {
+            System.out.println("Can't parse command line args for comments: " + e.getMessage());
+            return;
+        }
+        CommentsMigration commentsMigrationMigration = new CommentsMigration(mysqlConnection, postgresqlConnection);
+        commentsMigrationMigration.startCommentsMigration(firstCommentId, commentsPerRequest);
     }
 
     public static void startTopicsMigration() {
@@ -77,7 +98,8 @@ public final class DiscourseMigration {
             topicsPerRequest = Integer.parseInt(System.getProperty("topicsPerRequest"));
         }
         catch (Exception e) {
-            throw new RuntimeException("Error when parsing command line args: " + e.getMessage());
+            System.out.println("Can't parse command line args for topics: " + e.getMessage());
+            return;
         }
         TopicsMigration topicsMigration = new TopicsMigration(mysqlConnection, postgresqlConnection);
         topicsMigration.startTopicsMigration(firstTopicId, topicsPerRequest);
@@ -92,5 +114,22 @@ public final class DiscourseMigration {
                 utcDateTime.getHourOfDay(),
                 utcDateTime.getMinuteOfHour(),
                 utcDateTime.getSecondOfMinute());
+    }
+
+    public static List<Integer> getIds(String sql, int from, int to) {
+        try {
+            PreparedStatement ps = mysqlConnection.prepareStatement(sql);
+            ps.setInt(1, from);
+            ps.setInt(2, to);
+            ResultSet rs = ps.executeQuery();
+            List<Integer> ids = new ArrayList<Integer>();
+            while (rs.next())
+                ids.add(rs.getInt(1));
+            return ids;
+        }
+        catch (Exception e) {
+            throw new RuntimeException("Can't get list of ids " +
+                    "(from=" + String.valueOf(from) + ", to=" + String.valueOf(to) + "): " + e.getMessage());
+        }
     }
 }

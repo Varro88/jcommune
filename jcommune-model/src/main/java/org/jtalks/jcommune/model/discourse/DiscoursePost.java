@@ -1,6 +1,7 @@
 package org.jtalks.jcommune.model.discourse;
 
 import org.jtalks.jcommune.model.entity.Post;
+import org.jtalks.jcommune.model.entity.PostComment;
 import org.kefirsf.bb.BBProcessorFactory;
 import org.kefirsf.bb.TextProcessor;
 
@@ -90,6 +91,17 @@ public class DiscoursePost {
         this.postNumber = jcommunePost.getPostIndexInTopic() + 1;
         this.cooked = getCookedText(jcommunePost.getPostContent());
         this.raw = getRawText(jcommunePost.getPostContent());
+    }
+
+    public DiscoursePost(PostComment postComment) {
+        this.id = (int)(DiscourseMigration.COMMENTS_ID_SHIFT + postComment.getId());
+        this.userId = (int)postComment.getAuthor().getId();
+        this.topicId = (int)postComment.getPost().getTopic().getId();
+        this.createdAt = DiscourseMigration.jodaToJavaLocalDateTime(postComment.getCreationDate());
+        this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(postComment.getModificationDate());
+        this.postNumber = postComment.getOwnerPost().getPostIndexInTopic() + 1;
+        this.cooked = getCookedText(postComment.getBody());
+        this.raw = getRawText(postComment.getBody());
     }
 
     private String getCookedText(String postContent) {

@@ -10,10 +10,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PostsMigration {
-    private Connection mysqlConnection;
-    private Connection postgresqlConnection;
+    protected Connection mysqlConnection;
+    protected Connection postgresqlConnection;
 
     private final String LOCALE = "ru";
+
+    public PostsMigration(){}
 
     public PostsMigration(Connection mysql, Connection postgres) {
         mysqlConnection = mysql;
@@ -31,7 +33,8 @@ public class PostsMigration {
             if(to > lastPostId) {
                 to = lastPostId;
             }
-            List<Integer> postIds = getPostsIds(i, to);
+            String sql = "SELECT POST_ID FROM POST WHERE POST_ID >= ? AND POST_ID < ?";
+            List<Integer> postIds = DiscourseMigration.getIds(sql, i, to);
             for(int j = 0; j < postIds.size(); j++) {
                 try {
                     Post jcommunePost = getJcommunePost(postIds.get(j));
@@ -50,7 +53,7 @@ public class PostsMigration {
         }
     }
 
-    private boolean addPost(Post jcommunePost, int postNumber) {
+    protected boolean addPost(Post jcommunePost, int postNumber) {
         DiscoursePost discoursePost = new DiscoursePost(jcommunePost);
         discoursePost.setPostNumber(postNumber);
 
@@ -127,33 +130,14 @@ public class PostsMigration {
         return maxId;
     }
 
-    private List<Integer> getPostsIds(int from, int to) {
-        try {
-            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT POST_ID FROM POST " +
-                    "WHERE POST_ID >= ? AND POST_ID < ?");
-            ps.setInt(1, from);
-            ps.setInt(2, to);
-            ResultSet rs = ps.executeQuery();
-            ArrayList<Integer> ids = new ArrayList<Integer>();
-            while (rs.next())
-            {
-                ids.add(rs.getInt("POST_ID"));
-            };
-
-            return ids;
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Can't get list of ids for posts in JCommune " +
-                    "(from=" + String.valueOf(from) + ", to=" + String.valueOf(to) + "): " + e.getMessage());
-        }
-    }
-
     private Post getJcommunePost(int id) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
-                    "SELECT POST_ID, USER_CREATED, TOPIC_ID, POST_CONTENT, POST_DATE, MODIFICATION_DATE " +
+                    "SELECT POST.POST_ID, USER_CREATED, POST.TOPIC_ID, POST_CONTENT, POST_DATE, POST.MODIFICATION_DATE " +
                             "FROM POST " +
-                            "WHERE POST_ID = ?");
+                            "INNER JOIN TOPIC " +
+                            "ON POST.TOPIC_ID = TOPIC.TOPIC_ID " +
+                            "WHERE TOPIC.TYPE != 'Code review' AND POST.POST_ID = ?");
 
             ps.setInt(1, id);
 
@@ -196,7 +180,7 @@ public class PostsMigration {
         }
     }
 
-    private int getPostNumberInTopic(long topicId, DateTime postTime) {
+    protected int getPostNumberInTopic(long topicId, DateTime postTime) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement("SELECT COUNT(*) as number FROM POST " +
                     "WHERE TOPIC_ID = ? AND POST_DATE < ?");

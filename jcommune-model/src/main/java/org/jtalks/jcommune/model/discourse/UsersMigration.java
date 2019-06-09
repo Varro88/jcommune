@@ -40,7 +40,8 @@ public class UsersMigration {
             if(to > maxExistingUserId) {
                 to = maxExistingUserId;
             }
-            List<Integer> userIds = getUsersIds(i, to);
+            String sql = "SELECT ID FROM USERS WHERE ID >= ? AND ID < ?";
+            List<Integer> userIds = DiscourseMigration.getIds(sql, i, to);
             for(int j = 0; j < userIds.size(); j++) {
                 try {
                     JCUser jcommuneUser = getJcommuneUser(userIds.get(j));
@@ -70,27 +71,6 @@ public class UsersMigration {
             throw new RuntimeException("Can't get max user id in JCommune: " + e.getMessage());
         }
         return maxId;
-    }
-
-    private List<Integer> getUsersIds(int from, int to) {
-        try {
-            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT ID FROM USERS " +
-                    "WHERE ID >= ? AND ID < ?");
-            ps.setInt(1, from);
-            ps.setInt(2, to);
-            ResultSet rs = ps.executeQuery();
-            ArrayList<Integer> ids = new ArrayList<Integer>();
-            while (rs.next())
-            {
-                ids.add(rs.getInt("ID"));
-            };
-
-            return ids;
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Can't get list of ids for users in JCommune " +
-                    "(from=" + String.valueOf(from) + ", to=" + String.valueOf(to) + "): " + e.getMessage());
-        }
     }
 
     private JCUser getJcommuneUser(int id) {
