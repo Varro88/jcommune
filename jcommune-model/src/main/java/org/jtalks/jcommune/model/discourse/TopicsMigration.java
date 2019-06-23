@@ -25,7 +25,7 @@ public class TopicsMigration {
     }
 
     public void startTopicsMigration(int firstTopicId, int topicsPerRequest) {
-        int lastTopicId = getLastTopicId();
+        int lastTopicId = DiscourseMigration.getLastTopicId();
         if (lastTopicId == -1 || lastTopicId < firstTopicId) {
             throw new RuntimeException("Error when parsing command line args");
         }
@@ -97,21 +97,6 @@ public class TopicsMigration {
             throw new RuntimeException("Error inserting to 'posts': " + e.getMessage());
         }
         return false;
-    }
-
-    private int getLastTopicId() {
-        int maxId = -1;
-        try {
-            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT MAX(TOPIC_ID) FROM TOPIC");
-            ResultSet rs = ps.executeQuery();
-            if(rs.next()) {
-                maxId = rs.getInt(1);
-            }
-        }
-        catch(Exception e) {
-            throw new RuntimeException("Can't get max topic id in JCommune: " + e.getMessage());
-        }
-        return maxId;
     }
 
     private Topic getJcommuneTopic(int id) {

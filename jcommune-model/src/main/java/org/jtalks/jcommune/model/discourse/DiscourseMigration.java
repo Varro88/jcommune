@@ -44,9 +44,8 @@ public final class DiscourseMigration {
         postgresqlConnection = ConnectionFactory.getPostgresqlConnection();
 
         startUsersMigration();
-        startPostsMigration();
         startTopicsMigration();
-        startCommentsMigration();
+        startTopicsContentMigration();
     }
 
     public static void startUsersMigration() {
@@ -63,32 +62,18 @@ public final class DiscourseMigration {
         usersMigration.startUsersMigration(firstUserId, usersPerRequest);
     }
 
-    public static void startPostsMigration() {
-        int firstPostId, postsPerRequest;
+    public static void startTopicsContentMigration() {
+        int firstTopicId, topicsPerRequest;
         try {
-            firstPostId = Integer.parseInt(System.getProperty("firstPostId"));
-            postsPerRequest = Integer.parseInt(System.getProperty("postsPerRequest"));
-        }
-        catch (Exception e) {
-            System.out.println("Can't parse command line args for posts: " + e.getMessage());
-            return;
-        }
-        PostsMigration postsMigration = new PostsMigration(mysqlConnection, postgresqlConnection);
-        postsMigration.startPostsMigration(firstPostId, postsPerRequest);
-    }
-
-    public static void startCommentsMigration() {
-        int firstCommentId, commentsPerRequest;
-        try {
-            firstCommentId = Integer.parseInt(System.getProperty("firstCommentId"));
-            commentsPerRequest = Integer.parseInt(System.getProperty("commentsPerRequest"));
+            firstTopicId = Integer.parseInt(System.getProperty("firstTopicWithContentId"));
+            topicsPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
         }
         catch (Exception e) {
             System.out.println("Can't parse command line args for comments: " + e.getMessage());
             return;
         }
-        CommentsMigration commentsMigrationMigration = new CommentsMigration(mysqlConnection, postgresqlConnection);
-        commentsMigrationMigration.startCommentsMigration(firstCommentId, commentsPerRequest);
+        TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
+        topicContentMigration.startTopicContentMigration(firstTopicId, topicsPerRequest);
     }
 
     public static void startTopicsMigration() {
@@ -131,5 +116,20 @@ public final class DiscourseMigration {
             throw new RuntimeException("Can't get list of ids " +
                     "(from=" + String.valueOf(from) + ", to=" + String.valueOf(to) + "): " + e.getMessage());
         }
+    }
+
+    public static int getLastTopicId() {
+        int maxId = -1;
+        try {
+            PreparedStatement ps = mysqlConnection.prepareStatement("SELECT MAX(TOPIC_ID) FROM TOPIC");
+            ResultSet rs = ps.executeQuery();
+            if(rs.next()) {
+                maxId = rs.getInt(1);
+            }
+        }
+        catch(Exception e) {
+            throw new RuntimeException("Can't get max topic id in JCommune: " + e.getMessage());
+        }
+        return maxId;
     }
 }
