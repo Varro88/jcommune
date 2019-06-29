@@ -43,51 +43,38 @@ public final class DiscourseMigration {
         mysqlConnection = ConnectionFactory.getMysqlConnection();
         postgresqlConnection = ConnectionFactory.getPostgresqlConnection();
 
-        startUsersMigration();
-        startTopicsMigration();
-        startTopicsContentMigration();
+        if(System.getProperty("firstUserId") != null && System.getProperty("usersPerRequest") != null) {
+            int firstUserId = Integer.parseInt(System.getProperty("firstUserId"));
+            int usersPerRequest = Integer.parseInt(System.getProperty("usersPerRequest"));
+            startUsersMigration(firstUserId, usersPerRequest);
+        }
+
+        if(System.getProperty("firstTopicId") != null && System.getProperty("topicsPerRequest") != null) {
+            int firstTopicId = Integer.parseInt(System.getProperty("firstTopicId"));
+            int topicsPerRequest = Integer.parseInt(System.getProperty("topicsPerRequest"));
+            startTopicsMigration(firstTopicId, topicsPerRequest);
+        }
+
+        if(System.getProperty("firstTopicWithContentId") != null && System.getProperty("topicsWithContentPerRequest") != null) {
+            int firstTopicWithContentId = Integer.parseInt(System.getProperty("firstTopicWithContentId"));
+            int topicsWithContentPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
+            startTopicsContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
+        }
     }
 
-    public static void startUsersMigration() {
-        int firstUserId, usersPerRequest;
-        try {
-            firstUserId = Integer.parseInt(System.getProperty("firstUserId"));
-            usersPerRequest = Integer.parseInt(System.getProperty("usersPerRequest"));
-        }
-        catch (Exception e) {
-            System.out.println("Can't parse command line args for users: " + e.getMessage());
-            return;
-        }
+    public static void startUsersMigration(int firstUserId, int usersPerRequest) {
         UsersMigration usersMigration = new UsersMigration(mysqlConnection, postgresqlConnection);
         usersMigration.startUsersMigration(firstUserId, usersPerRequest);
     }
 
-    public static void startTopicsContentMigration() {
-        int firstTopicId, topicsPerRequest;
-        try {
-            firstTopicId = Integer.parseInt(System.getProperty("firstTopicWithContentId"));
-            topicsPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
-        }
-        catch (Exception e) {
-            System.out.println("Can't parse command line args for comments: " + e.getMessage());
-            return;
-        }
-        TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
-        topicContentMigration.startTopicContentMigration(firstTopicId, topicsPerRequest);
-    }
-
-    public static void startTopicsMigration() {
-        int firstTopicId, topicsPerRequest;
-        try {
-            firstTopicId = Integer.parseInt(System.getProperty("firstTopicId"));
-            topicsPerRequest = Integer.parseInt(System.getProperty("topicsPerRequest"));
-        }
-        catch (Exception e) {
-            System.out.println("Can't parse command line args for topics: " + e.getMessage());
-            return;
-        }
+    public static void startTopicsMigration(int firstTopicId, int topicsPerRequest) {
         TopicsMigration topicsMigration = new TopicsMigration(mysqlConnection, postgresqlConnection);
         topicsMigration.startTopicsMigration(firstTopicId, topicsPerRequest);
+    }
+
+    public static void startTopicsContentMigration(int firstTopicWithContentId, int topicsWithContentPerRequest) {
+        TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
+        topicContentMigration.startTopicContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
     }
 
     public static java.time.LocalDateTime jodaToJavaLocalDateTime( DateTime dateTime ) {

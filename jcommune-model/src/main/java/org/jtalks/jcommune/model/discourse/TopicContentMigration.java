@@ -40,13 +40,11 @@ public class TopicContentMigration {
             for(int j = 0; j < topicIds.size(); j++) {
                 try {
                     List<Post> content = getAllPostsForTopic(topicIds.get(j));
-                    if (content != null ) {
-                        for (int k = 0; k < content.size(); k++) {
-                            Post post = content.get(k);
-                            addTopicContent(post, k+1);
-                            System.out.println("Topic post successfully migrated: topic_id="
-                                    + String.valueOf(topicIds.get(j)) + "post_id=" + post.getId() );
-                        }
+                    for (int k = 0; k < content.size(); k++) {
+                        Post post = content.get(k);
+                        addTopicContent(post, k+1);
+                        System.out.println("Topic post successfully migrated: topic_id="
+                                + String.valueOf(topicIds.get(j)) + "post_id=" + post.getId() );
                     }
                 }
                 catch(Exception e) {
@@ -188,5 +186,4 @@ public class TopicContentMigration {
         }
         return false;
     }
-
 }
