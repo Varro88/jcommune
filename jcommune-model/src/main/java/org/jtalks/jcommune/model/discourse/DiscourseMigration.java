@@ -60,6 +60,12 @@ public final class DiscourseMigration {
             int topicsWithContentPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
             startTopicsContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
         }
+
+        if(System.getProperty("firstCategoryId") != null && System.getProperty("categoriesPerRequest") != null) {
+            int firstCategoryId = Integer.parseInt(System.getProperty("firstCategoryId"));
+            int categoriesPerRequest = Integer.parseInt(System.getProperty("categoriesPerRequest"));
+            startCategoriesContentMigration(firstCategoryId, categoriesPerRequest);
+        }
     }
 
     public static void startUsersMigration(int firstUserId, int usersPerRequest) {
@@ -75,6 +81,11 @@ public final class DiscourseMigration {
     public static void startTopicsContentMigration(int firstTopicWithContentId, int topicsWithContentPerRequest) {
         TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
         topicContentMigration.startTopicContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
+    }
+
+    public static void startCategoriesContentMigration(int firstCategoryId, int categoriesPerRequest) {
+        BranchesMigration branchesMigration = new BranchesMigration(mysqlConnection, postgresqlConnection);
+        branchesMigration.startBranchesMigration(firstCategoryId, categoriesPerRequest);
     }
 
     public static java.time.LocalDateTime jodaToJavaLocalDateTime( DateTime dateTime ) {
