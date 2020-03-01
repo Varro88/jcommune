@@ -49,6 +49,12 @@ public final class DiscourseMigration {
             startUsersMigration(firstUserId, usersPerRequest);
         }
 
+        if(System.getProperty("firstCategoryId") != null && System.getProperty("categoriesPerRequest") != null) {
+            int firstCategoryId = Integer.parseInt(System.getProperty("firstCategoryId"));
+            int categoriesPerRequest = Integer.parseInt(System.getProperty("categoriesPerRequest"));
+            startCategoriesContentMigration(firstCategoryId, categoriesPerRequest);
+        }
+
         if(System.getProperty("firstTopicId") != null && System.getProperty("topicsPerRequest") != null) {
             int firstTopicId = Integer.parseInt(System.getProperty("firstTopicId"));
             int topicsPerRequest = Integer.parseInt(System.getProperty("topicsPerRequest"));
@@ -59,12 +65,6 @@ public final class DiscourseMigration {
             int firstTopicWithContentId = Integer.parseInt(System.getProperty("firstTopicWithContentId"));
             int topicsWithContentPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
             startTopicsContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
-        }
-
-        if(System.getProperty("firstCategoryId") != null && System.getProperty("categoriesPerRequest") != null) {
-            int firstCategoryId = Integer.parseInt(System.getProperty("firstCategoryId"));
-            int categoriesPerRequest = Integer.parseInt(System.getProperty("categoriesPerRequest"));
-            startCategoriesContentMigration(firstCategoryId, categoriesPerRequest);
         }
     }
 

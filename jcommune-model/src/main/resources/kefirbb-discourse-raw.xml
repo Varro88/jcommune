@@ -242,7 +242,7 @@ get XSS attacks.</p>-->
     <scope name="listScope" ignoreText="false">
         <code name="li">
             <pattern>[*]<var scope="ROOT"/>[/*]</pattern>
-            <template>*<var/></template>
+            <template><var/></template>
         </code>
     </scope>
 
@@ -347,7 +347,7 @@ get XSS attacks.</p>-->
 
     <!-- User mentioning -->
     <code name="user">
-        <pattern ignoreCase="true">[user=<var name="mentionedUserProfileLink"/>]<var name="mentionedUser" inherit="true"/>[/user]</pattern>
+        <pattern ignoreCase="true">[user notified=true]<var name="mentionedUser" inherit="true"/>[/user]</pattern>
         <template><var name="mentionedUser"/></template>
     </code>
 </configuration>

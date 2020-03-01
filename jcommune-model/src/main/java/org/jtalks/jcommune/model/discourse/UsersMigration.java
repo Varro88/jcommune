@@ -1,8 +1,6 @@
 package org.jtalks.jcommune.model.discourse;
 
 import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 import org.jtalks.common.model.entity.User;
 import org.jtalks.jcommune.model.entity.JCUser;
 import org.jtalks.jcommune.model.entity.UserContact;
@@ -13,7 +11,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class UsersMigration {
@@ -77,7 +74,7 @@ public class UsersMigration {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT ID, USERNAME, EMAIL, ENABLED, LAST_LOGIN, ROLE, BAN_REASON, FIRST_NAME, LAST_NAME, " +
-                            "REGISTRATION_DATE, LOCATION, SEND_PM_NOTIFICATION, " +
+                            "POST_COUNT, REGISTRATION_DATE, LOCATION, SEND_PM_NOTIFICATION, " +
                             "VALUE " +
                             "FROM USERS LEFT JOIN JC_USER_DETAILS " +
                             "ON USERS.ID = JC_USER_DETAILS.USER_ID " +
@@ -121,6 +118,7 @@ public class UsersMigration {
             jcommuneUser.setRegistrationDate(regDate);
             jcommuneUser.setLocation(rs.getString("LOCATION"));
             jcommuneUser.setSendPmNotification(rs.getBoolean("SEND_PM_NOTIFICATION"));
+            jcommuneUser.setPostCount(rs.getInt("POST_COUNT"));
 
             //user_contacts
             String contactValue = rs.getString("VALUE");
@@ -149,6 +147,10 @@ public class UsersMigration {
         }
 
         if(!insertToUserOptions(discourseUser, postgresqlConnection)) {
+            return false;
+        }
+
+        if(!insertToUserStats(discourseUser, postgresqlConnection)) {
             return false;
         }
 
@@ -231,6 +233,25 @@ public class UsersMigration {
             }
         } catch (SQLException ex) {
             throw new RuntimeException("Error inserting to 'user_options'. "  + ex.getMessage());
+        }
+        return false;
+    }
+
+    private boolean insertToUserStats(DiscourseUser discourseUser, Connection connection) {
+        try {
+            PreparedStatement ps = connection.prepareStatement("INSERT INTO user_stats(user_id, " +
+                    "topic_reply_count, new_since)" +
+                    " VALUES (?, ?, ?)");
+            ps.setInt(1, discourseUser.getId());
+            ps.setInt(2, discourseUser.getPostCount());
+            ps.setObject(3, discourseUser.getFirstSeenAt());
+
+            int i = ps.executeUpdate();
+            if(i == 1) {
+                return true;
+            }
+        } catch (SQLException ex) {
+            throw new RuntimeException("Error inserting to 'user_stats'", ex);
         }
         return false;
     }

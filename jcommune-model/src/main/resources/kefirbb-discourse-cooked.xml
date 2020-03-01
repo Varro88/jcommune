@@ -138,6 +138,7 @@ get XSS attacks.</p>-->
 
         <!-- Quotes -->
         <coderef name="code"/>
+        <coderef name="code_named"/>
         <coderef name="quote"/>
         <coderef name="quote_named"/>
 
@@ -228,7 +229,7 @@ get XSS attacks.</p>-->
     <!-- Text indent -->
     <code name="indent">
         <pattern ignoreCase="true">[indent=<var name="size" scope="escapeXmlAndBr"/>]<var name="text" inherit="true"/>[/indent]</pattern>
-        <template>&lt;div class=&quot;marginLeft<var name="size"/>&quot;&gt;<var name="text"/>&lt;/div&gt;</template>
+        <template>&lt;ul&gt;&lt;li&gt;<var name="text"/>&lt;/li&gt;&lt;/ul&gt;</template>
     </code>
 
     <!-- List -->
@@ -297,7 +298,6 @@ get XSS attacks.</p>-->
         <template>&lt;a href=&quot;http://<var name="url"/>&quot;&gt;<var name="url"/>&lt;/a&gt;</template>
     </code>
 
-
     <!-- MAILTO -->
     <code name="url6" priority="2">
         <pattern ignoreCase="true">[url=mailto:<var name="url" scope="escapeXmlAndBr"/>]<var name="text" scope="url"/>[/url]</pattern>
@@ -310,19 +310,25 @@ get XSS attacks.</p>-->
 
     <!-- Quote block -->
     <code name="quote">
-        <pattern ignoreCase="true">[quote]<var inherit="true"/>[/quote]</pattern>
-        <template>&lt;div class="quote bb_quote_container"&gt;&lt;span class="bb_quote_title"&gt;Quote:&lt;/span&gt;&lt;div class='bb_quote_content'&gt;<var/>&lt;/div&gt;&lt;/div&gt;</template>
+        <pattern ignoreCase="true">[quote]<var name="content" inherit="true"/>[/quote]</pattern>
+        <template>&lt;blockquote>&lt;p><var name="content"/>&lt;/p>&lt;/blockquote></template>
     </code>
 
     <code name="quote_named">
         <pattern ignoreCase="true">[quote="<var name="author" inherit="true"/>"]<var name="content" inherit="true"/>[/quote]</pattern>
-        <template>&lt;div class="quote bb_quote_container"&gt;&lt;span class="bb_quote_title"&gt;<var name="author"/>:&lt;/span&gt;&lt;div class='bb_quote_content'&gt;<var name="content"/>&lt;/div&gt;&lt;/div&gt;</template>
+        <template>&lt;aside class="quote">&lt;div class="title">&lt;div class="quote-controls"/><var name="author"/>:&lt;/div>&lt;blockquote>&lt;p><var name="content"/>&lt;/p>&lt;/blockquote>&lt;/aside></template>
     </code>
 
-    <!-- Code block -->
+    <!-- Code block (no name) -->
     <code name="code">
-        <pattern ignoreCase="true">[code<var name="lang"/>]<var name="code" scope="escapeXml"/>[/code]</pattern>
-        <template>&lt;pre class=&quot;prettyprint linenums <var name="lang"/>&quot;&gt;<var name="code"/>&lt;/pre&gt;</template>
+        <pattern ignoreCase="true">[code]<var name="code" scope="escapeXml"/>[/code]</pattern>
+        <template>&lt;pre&gt;&lt;code class="lang-auto"><var name="code"/>&lt;/code&gt;&lt;/pre&gt;</template>
+    </code>
+
+    <!-- Code block (named) -->
+    <code name="code_named">
+        <pattern ignoreCase="true">[code=<var name="lang"/>]<var name="code" scope="escapeXml"/>[/code]</pattern>
+        <template>&lt;pre&gt;&lt;code class="lang-<var name="lang"/>"><var name="code"/>&lt;/code&gt;&lt;/pre&gt;</template>
     </code>
 
     <!-- Offtopic block -->
@@ -355,7 +361,7 @@ get XSS attacks.</p>-->
 
     <!-- User mentioning -->
     <code name="user">
-        <pattern ignoreCase="true">[user=<var name="mentionedUserProfileLink"/>]<var name="mentionedUser" inherit="true"/>[/user]</pattern>
-        <template>&lt;a  href=&quot;<var name="mentionedUserProfileLink"/>&quot; class=&quot;mentioned-user&quot; &gt;<var name="mentionedUser"/>&lt;/a&gt;</template>
+        <pattern ignoreCase="true">[user notified=true]<var name="mentionedUser" inherit="true"/>[/user]</pattern>
+        <template>&lt;a class="mention" href="/u/<var name="mentionedUser"/>">@<var name="mentionedUser"/>&lt;/a></template>
     </code>
 </configuration>

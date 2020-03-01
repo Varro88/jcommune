@@ -44,7 +44,7 @@ public class TopicContentMigration {
                         Post post = content.get(k);
                         addTopicContent(post, k+1);
                         System.out.println("Topic post successfully migrated: topic_id="
-                                + String.valueOf(topicIds.get(j)) + "post_id=" + post.getId() );
+                                + topicIds.get(j) + "; post_id=" + post.getId() );
                     }
                 }
                 catch(Exception e) {
@@ -83,7 +83,7 @@ public class TopicContentMigration {
                     "UNION " +
                     "SELECT 1 as is_comment, POST_COMMENT.ID as entity_id, POST.POST_ID as post_id, " +
                     "TOPIC.TOPIC_ID as topic, AUTHOR_ID as author,  " +
-                    "BODY as content, POST_COMMENT.CREATION_DATE as created_at, POST_COMMENT.MODIFICATION_DATE as modified_at  " +
+                    "BODY as content, POST_COMMENT.CREATION_DATE as created_at, POST_COMMENT.CREATION_DATE as modified_at  " +
                     "FROM POST_COMMENT " +
                     "INNER JOIN POST " +
                     "ON POST.POST_ID = POST_COMMENT.POST_ID " +
@@ -141,19 +141,19 @@ public class TopicContentMigration {
 
     private boolean insertToPosts(DiscoursePost discoursePost, Connection connection) {
         try {
-            PreparedStatement ps = connection.prepareStatement("INSERT INTO posts(user_id, topic_id," +
+            PreparedStatement ps = connection.prepareStatement("INSERT INTO posts(id, user_id, topic_id," +
                     " post_number, raw, cooked, created_at, updated_at, last_version_at)" +
-                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?);");
+                    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
             //using auto ids
-            //ps.setInt(1, discoursePost.getId());
-            ps.setInt(1, discoursePost.getUserId());
-            ps.setInt(2, discoursePost.getTopicId());
-            ps.setInt(3, discoursePost.getPostNumber());
-            ps.setString(4, discoursePost.getRaw());
-            ps.setString(5, discoursePost.getCooked());
-            ps.setObject(6, discoursePost.getCreatedAt());
-            ps.setObject(7, discoursePost.getUpdatedAt());
-            ps.setObject(8, discoursePost.getCreatedAt());
+            ps.setInt(1, discoursePost.getId());
+            ps.setInt(2, discoursePost.getUserId());
+            ps.setInt(3, discoursePost.getTopicId());
+            ps.setInt(4, discoursePost.getPostNumber());
+            ps.setString(5, discoursePost.getRaw());
+            ps.setString(6, discoursePost.getCooked());
+            ps.setObject(7, discoursePost.getCreatedAt());
+            ps.setObject(8, discoursePost.getUpdatedAt());
+            ps.setObject(9, discoursePost.getCreatedAt());
 
             int i = ps.executeUpdate();
             if(i == 1) {

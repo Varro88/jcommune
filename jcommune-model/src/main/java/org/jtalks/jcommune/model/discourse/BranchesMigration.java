@@ -29,14 +29,14 @@ public class BranchesMigration {
             if(to > lastBranchId) {
                 to = lastBranchId;
             }
-            String sql = "SELECT BRANCH_ID FROM TOPIC WHERE BRANCH_ID >= ? AND BRANCH_ID < ?";
+            String sql = "SELECT BRANCH_ID FROM BRANCHES WHERE BRANCH_ID >= ? AND BRANCH_ID < ?";
             List<Integer> branchesIds = DiscourseMigration.getIds(sql, i, to);
             for(int j = 0; j < branchesIds.size(); j++) {
                 try {
                     MigrationBranch jcommuneBranch = getJcommuneBranch(branchesIds.get(j));
                     if (jcommuneBranch != null ) {
                         addBranch(jcommuneBranch);
-                        System.out.println("Topic successfully migrated: id=" + String.valueOf(jcommuneBranch.getId()) );
+                        System.out.println("Branch successfully migrated: id=" + String.valueOf(jcommuneBranch.getId()) );
                     }
                 }
                 catch(Exception e) {

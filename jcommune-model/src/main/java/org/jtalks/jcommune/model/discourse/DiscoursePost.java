@@ -105,17 +105,18 @@ public class DiscoursePost {
     }
 
     private String getCookedText(String postContent) {
+        ListItemsProcessor listsConverter = new ListItemsProcessor(postContent);
         TextProcessor stripBBCodesProcessor = BBProcessorFactory.getInstance()
                 .createFromResource("kefirbb-discourse-cooked.xml");
-        String cooked = stripBBCodesProcessor.process(postContent);
+        String cooked = stripBBCodesProcessor.process(listsConverter.getTextWithClosedTags().toString());
         return cooked;
     }
 
     private String getRawText(String postContent) {
+        ListItemsProcessor listsConverter = new ListItemsProcessor(postContent);
         TextProcessor stripBBCodesProcessor = BBProcessorFactory.getInstance()
                 .createFromResource("kefirbb-discourse-raw.xml");
-        String raw = stripBBCodesProcessor.process(postContent);
+        String raw = stripBBCodesProcessor.process(listsConverter.getTextWithClosedTags().toString());
         return raw;
     }
-
 }

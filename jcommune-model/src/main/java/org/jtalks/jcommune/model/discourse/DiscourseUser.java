@@ -14,13 +14,10 @@
  */
 package org.jtalks.jcommune.model.discourse;
 
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.jtalks.jcommune.model.entity.JCUser;
 import org.jtalks.jcommune.model.entity.UserContact;
 
 import java.time.LocalDateTime;
-import java.util.Iterator;
 
 /**
  * User data in Discourse.
@@ -51,6 +48,7 @@ public class DiscourseUser {
     private Boolean blocked;
     private LocalDateTime firstSeenAt;
     private String name;
+    private int postCount;
 
     //user_profiles
     private String location;
@@ -168,9 +166,23 @@ public class DiscourseUser {
         this.emailPrivateMessages = emailPrivateMessages;
     }
 
+    public int getPostCount() {
+        return postCount;
+    }
+
+    public void setPostCount(int postCount) {
+        this.postCount = postCount;
+    }
+
     public DiscourseUser(JCUser jcommuneUser) {
         this.id = (int)jcommuneUser.getId();
-        this.username = jcommuneUser.getUsername();
+        //HACK as "System" username is already taken
+        if(jcommuneUser.getUsername().equals("System")) {
+            this.username = "System1";
+        }
+        else {
+            this.username = jcommuneUser.getUsername();
+        }
 
         //this.email = jcommuneUser.getEmail();
         this.email = jcommuneUser.getId() + "@jcommune-mail.org";
@@ -196,6 +208,7 @@ public class DiscourseUser {
         }
 
         this.emailPrivateMessages = jcommuneUser.isSendPmNotification();
+        this.postCount = jcommuneUser.getPostCount();
 
         this.name = jcommuneUser.getFirstName() + " " + jcommuneUser.getLastName();
     }
