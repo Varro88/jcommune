@@ -11,7 +11,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 
 public class TopicsMigration {
@@ -140,18 +139,18 @@ public class TopicsMigration {
             jcommuneTopic.setViews(rs.getInt("VIEWS"));
             jcommuneTopic.setSticked(rs.getBoolean("STICKED"));
 
-            DateTime topicModificationDate = DateTime.parse(rs.getString("MODIFICATION_DATE"),
-                    DiscourseMigration.MYSQL_DATETIME_FORMAT);
-            Method setModificationDate = Topic.class.getDeclaredMethod("setModificationDate", DateTime.class);
-            setModificationDate.setAccessible(true);
-            setModificationDate.invoke(jcommuneTopic, topicModificationDate);
-
             for (int i = 0; i < rs.getInt("POSTS_COUNT") - 1; i++) {
                 jcommuneTopic.addPost(new Post(new JCUser("", "", ""), ""));
             }
             JCUser lastAuthor = new JCUser("", "", "");
             lastAuthor.setId(rs.getInt("LAST_AUTHOR"));
             jcommuneTopic.addPost(new Post(lastAuthor, ""));
+
+            DateTime topicModificationDate = DateTime.parse(rs.getString("MODIFICATION_DATE"),
+                    DiscourseMigration.MYSQL_DATETIME_FORMAT);
+            Method setModificationDate = Topic.class.getDeclaredMethod("setModificationDate", DateTime.class);
+            setModificationDate.setAccessible(true);
+            setModificationDate.invoke(jcommuneTopic, topicModificationDate);
 
             return jcommuneTopic;
         }

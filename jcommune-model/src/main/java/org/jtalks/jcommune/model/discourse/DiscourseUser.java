@@ -18,6 +18,8 @@ import org.jtalks.jcommune.model.entity.JCUser;
 import org.jtalks.jcommune.model.entity.UserContact;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * User data in Discourse.
@@ -187,13 +189,16 @@ public class DiscourseUser {
         //this.email = jcommuneUser.getEmail();
         this.email = jcommuneUser.getId() + "@jcommune-mail.org";
 
-        this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
+        this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getRegistrationDate());
         this.active = jcommuneUser.isEnabled();
-        this.lastSeenAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
-        if (jcommuneUser.getRole().equals("ADMIN_ROLE")) {
+        this.lastSeenAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getRegistrationDate());
+        if (jcommuneUser.getRole() != null && jcommuneUser.getRole().equals("ADMIN_ROLE") ) {
             this.admin = true;
         }
-        this.previousVisitAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
+        if(jcommuneUser.getLastLogin() != null) {
+            this.previousVisitAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getLastLogin());
+        }
+
         if (jcommuneUser.getGroupsIDs().contains(bannedGroupId)) {
             this.blocked = true;
         }
@@ -211,5 +216,13 @@ public class DiscourseUser {
         this.postCount = jcommuneUser.getPostCount();
 
         this.name = jcommuneUser.getFirstName() + " " + jcommuneUser.getLastName();
+    }
+
+    public static List<DiscourseUser> getUsers(List<JCUser> users) {
+        List<DiscourseUser> outUsers = new ArrayList<>();
+        for (JCUser user : users) {
+            outUsers.add(new DiscourseUser(user));
+        }
+        return outUsers;
     }
 }
