@@ -178,9 +178,12 @@ public class DiscourseUser {
 
     public DiscourseUser(JCUser jcommuneUser) {
         this.id = (int)jcommuneUser.getId();
-        //HACK as "System" username is already taken
+        //HACK for already taken usernames
         if(jcommuneUser.getUsername().equals("System")) {
             this.username = "System1";
+        }
+        else if(jcommuneUser.getUsername().equals("user")) {
+            this.username = "userX";
         }
         else {
             this.username = jcommuneUser.getUsername();

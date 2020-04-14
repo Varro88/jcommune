@@ -6,12 +6,14 @@ import org.jtalks.jcommune.model.entity.Post;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class BranchesMigration {
 
-    private Connection mysqlConnection;
-    private Connection postgresqlConnection;
+    private final Connection mysqlConnection;
+    private final Connection postgresqlConnection;
 
     public BranchesMigration(Connection mysql, Connection postgres) {
         mysqlConnection = mysql;
@@ -29,64 +31,17 @@ public class BranchesMigration {
             if(to > lastBranchId) {
                 to = lastBranchId;
             }
-            String sql = "SELECT BRANCH_ID FROM BRANCHES WHERE BRANCH_ID >= ? AND BRANCH_ID < ?";
+            String sql = "SELECT BRANCH_ID FROM BRANCHES WHERE BRANCH_ID >= ? AND BRANCH_ID < ? AND LAST_POST IS NOT NULL";
             List<Integer> branchesIds = DiscourseMigration.getIds(sql, i, to);
-            for(int j = 0; j < branchesIds.size(); j++) {
-                try {
-                    MigrationBranch jcommuneBranch = getJcommuneBranch(branchesIds.get(j));
-                    if (jcommuneBranch != null ) {
-                        addBranch(jcommuneBranch);
-                        System.out.println("Branch successfully migrated: id=" + String.valueOf(jcommuneBranch.getId()) );
-                    }
-                }
-                catch(Exception e) {
-                    throw new RuntimeException(String.format("Migration error (topicId=%1$s): %2$s",
-                            branchesIds.get(j), e.getMessage()));
-                }
-            }
+
+            System.out.println("First branch id in batch: " + branchesIds.get(0));
+            List<MigrationBranch> branches = getJcommuneBranches(branchesIds);
+
+            addBranches(branches);
         }
     }
 
-    private boolean addBranch(MigrationBranch jcommuneBranch) {
-        DiscourseCategory discourseCategory = new DiscourseCategory(jcommuneBranch);
-
-        if(!insertToCategories(discourseCategory, postgresqlConnection)) {
-            return false;
-        }
-        return  true;
-    }
-
-    private boolean insertToCategories(DiscourseCategory discourseCategory, Connection connection) {
-        try {
-            PreparedStatement ps = connection.prepareStatement("INSERT INTO categories(id, name, topic_count, " +
-                    "description, latest_post_id, latest_topic_id, position, created_at, updated_at, user_id, slug, " +
-                    "name_lower) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
-            ps.setInt(1, discourseCategory.getId());
-            ps.setString(2, discourseCategory.getName());
-            ps.setInt(3, discourseCategory.getTopicCount());
-            ps.setString(4, discourseCategory.getDescription());
-            ps.setInt(5, discourseCategory.getLatestPostId());
-            ps.setInt(6, discourseCategory.getLatestTopicId());
-            ps.setInt(7, discourseCategory.getPosition());
-            ps.setObject(8, discourseCategory.getCreatedAt());
-            ps.setObject(9, discourseCategory.getUpdatedAt());
-            ps.setInt(10, -1);
-            ps.setString(11, discourseCategory.getName().toLowerCase()
-                    .replace(" ", "-")
-                    .replace(".", ""));
-            ps.setString(12, discourseCategory.getName().toLowerCase());
-            int i = ps.executeUpdate();
-            if(i == 1) {
-                return true;
-            }
-        }
-        catch (Exception ex) {
-            throw new RuntimeException("Error inserting to 'categories': " + ex.getMessage());
-        }
-        return false;
-    }
-
-    private MigrationBranch getJcommuneBranch(int id) {
+    private List<MigrationBranch> getJcommuneBranches(List<Integer> ids) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT BRANCHES.BRANCH_ID, NAME, DESCRIPTION, POSITION, LAST_POST, POST.TOPIC_ID, COUNT(*) AS count " +
@@ -95,36 +50,69 @@ public class BranchesMigration {
                             "ON BRANCHES.LAST_POST = POST.POST_ID " +
                             "LEFT JOIN TOPIC " +
                             "ON TOPIC.BRANCH_ID = BRANCHES.BRANCH_ID " +
-                            "WHERE BRANCHES.BRANCH_ID = ? " +
+                            "WHERE BRANCHES.BRANCH_ID IN (?) " +
                             "GROUP BY BRANCHES.BRANCH_ID, NAME, DESCRIPTION, POSITION, LAST_POST, POST.TOPIC_ID");
-            ps.setInt(1, id);
+            ps.setString(1, ids.stream().map(String::valueOf).collect(Collectors.joining(",")));
 
             ResultSet rs = ps.executeQuery();
 
-            if(rs.next() == false) {
-                System.out.println(String.format("No branches with id=%1$s", id));
-                return null;
+            List<MigrationBranch> branches = new ArrayList<>();
+
+            while(rs.next()) {
+                MigrationBranch branch = new MigrationBranch(rs.getString("NAME"), rs.getString("DESCRIPTION"));
+                branch.setPosition(rs.getInt("POSITION"));
+                branch.setId(rs.getInt("BRANCH_ID"));
+
+                JCUser author = new JCUser("", "", "");
+                Post lastPost = new Post(author, "");
+                lastPost.setId(rs.getInt("LAST_POST"));
+                branch.setLastPost(lastPost);
+                branch.setLatestTopicId(rs.getInt("TOPIC_ID"));
+                branch.setTopicsCount(rs.getInt("count"));
+
+                branches.add(branch);
             }
-
-            MigrationBranch branch = new MigrationBranch(rs.getString("NAME"), rs.getString("DESCRIPTION"));
-            branch.setPosition(rs.getInt("POSITION"));
-            branch.setId(rs.getInt("BRANCH_ID"));
-
-            if(rs.getString("LAST_POST") == null) {
-                System.out.println(String.format("No data in branch with id=%1$s", id));
-                return null;
-            }
-
-            JCUser author = new JCUser("", "", "");
-            Post lastPost = new Post(author, "");
-            lastPost.setId(rs.getInt("LAST_POST"));
-            branch.setLastPost(lastPost);
-            branch.setLatestTopicId(rs.getInt("TOPIC_ID"));
-            branch.setTopicsCount(rs.getInt("count"));
-            return branch;
+            return branches;
         }
-        catch (Exception e) {
-            throw new RuntimeException("Can't create jcommuneBranch. " + e.getMessage());
+        catch (Exception ex) {
+            throw new RuntimeException("Can't create jcommune branch.", ex);
+        }
+    }
+
+    private void addBranches(List<MigrationBranch> branches) {
+        List<DiscourseCategory> categories = DiscourseCategory.getCategories(branches);
+
+        insertToCategories(categories, postgresqlConnection);
+    }
+
+    private void insertToCategories(List<DiscourseCategory> discourseCategories, Connection connection) {
+        try {
+            PreparedStatement ps = connection.prepareStatement("INSERT INTO categories(id, name, topic_count, " +
+                    "description, latest_post_id, latest_topic_id, position, created_at, updated_at, user_id, slug, " +
+                    "name_lower) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)");
+
+            for (DiscourseCategory category : discourseCategories) {
+                ps.clearParameters();
+                ps.setInt(1, category.getId());
+                ps.setString(2, category.getName());
+                ps.setInt(3, category.getTopicCount());
+                ps.setString(4, category.getDescription());
+                ps.setInt(5, category.getLatestPostId());
+                ps.setInt(6, category.getLatestTopicId());
+                ps.setInt(7, category.getPosition());
+                ps.setObject(8, category.getCreatedAt());
+                ps.setObject(9, category.getUpdatedAt());
+                ps.setInt(10, -1);
+                ps.setString(11, category.getName().toLowerCase()
+                        .replace(" ", "-")
+                        .replace(".", ""));
+                ps.setString(12, category.getName().toLowerCase());
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+        catch (Exception ex) {
+            throw new RuntimeException("Error inserting to 'categories'", ex);
         }
     }
 

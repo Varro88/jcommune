@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TopicContentMigration {
     protected Connection mysqlConnection;
@@ -37,40 +38,21 @@ public class TopicContentMigration {
             }
             String sql = "SELECT TOPIC_ID FROM TOPIC WHERE TOPIC_ID >= ? AND TOPIC_ID < ?";
             List<Integer> topicIds = DiscourseMigration.getIds(sql, i, to);
-            for(int j = 0; j < topicIds.size(); j++) {
-                try {
-                    List<Post> content = getAllPostsForTopic(topicIds.get(j));
-                    for (int k = 0; k < content.size(); k++) {
-                        Post post = content.get(k);
-                        addTopicContent(post, k+1);
-                        System.out.println("Topic post successfully migrated: topic_id="
-                                + topicIds.get(j) + "; post_id=" + post.getId() );
-                    }
-                }
-                catch(Exception e) {
-                    throw new RuntimeException(String.format("Migration error for topic content (topicId=%1$s): %2$s",
-                            topicIds.get(j), e.getMessage()));
-                }
-            }
+
+            System.out.println("First user id in batch: " + topicIds.get(0));
+            List<Post> posts = getAllPostsForTopics(topicIds);
+
+            addTopicsContent(posts);
         }
     }
 
-    private boolean addTopicContent(Post post, int postNumber) {
-        DiscoursePost discoursePost = new DiscoursePost(post);
-        discoursePost.setPostNumber(postNumber);
-
-        if(!insertToPosts(discoursePost, postgresqlConnection)) {
-            return false;
-        }
-
-        if(!insertToPostSearchData(discoursePost, postgresqlConnection)) {
-            return false;
-        }
-
-        return true;
+    private void addTopicsContent(List<Post> posts) {
+        List<DiscoursePost> discoursePosts = DiscoursePost.getPosts(posts);
+        insertToPosts(discoursePosts, postgresqlConnection);
+        insertToPostSearchData(discoursePosts, postgresqlConnection);
     }
 
-    private List<Post> getAllPostsForTopic(int topicId) {
+    private List<Post> getAllPostsForTopics(List<Integer> topicIds) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT 0 as is_comment, POST.POST_ID as entity_id, POST.POST_ID as post_id, " +
@@ -79,7 +61,7 @@ public class TopicContentMigration {
                     "FROM POST " +
                     "INNER JOIN TOPIC " +
                     "ON POST.TOPIC_ID = TOPIC.TOPIC_ID " +
-                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID = ? " +
+                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID IN(?) " +
                     "UNION " +
                     "SELECT 1 as is_comment, POST_COMMENT.ID as entity_id, POST.POST_ID as post_id, " +
                     "TOPIC.TOPIC_ID as topic, AUTHOR_ID as author,  " +
@@ -89,15 +71,19 @@ public class TopicContentMigration {
                     "ON POST.POST_ID = POST_COMMENT.POST_ID " +
                     "INNER JOIN TOPIC  " +
                     "ON POST.TOPIC_ID = TOPIC.TOPIC_ID " +
-                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID = ? " +
-                    "ORDER BY post_id, created_at");
+                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID IN(?) " +
+                    "ORDER BY topic, post_id, created_at");
 
-            ps.setInt(1, topicId);
-            ps.setInt(2, topicId);
+            ps.setString(1, topicIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+            ps.setString(2, topicIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+
             ResultSet rs = ps.executeQuery();
 
-            List<Post> jcommunePosts = new ArrayList<Post>();
-            while(rs.next() != false) {
+            List<Post> jcommunePosts = new ArrayList<>();
+            int postNumber = 1;
+            int previousTopicId = -1;
+
+            while(rs.next()) {
                 JCUser author = new JCUser("", "", "");
                 author.setId(rs.getLong("author"));
 
@@ -130,60 +116,67 @@ public class TopicContentMigration {
                 topic.setId(rs.getInt("topic"));
                 jcommunePost.setTopic(topic);
 
+                if(previousTopicId == rs.getInt("topic")) {
+                    postNumber++;
+                }
+                else {
+                    previousTopicId = rs.getInt("topic");
+                    postNumber = 1;
+                }
+                jcommunePost.setRating(postNumber);
+
                 jcommunePosts.add(jcommunePost);
             }
             return jcommunePosts;
         }
-        catch (Exception e)  {
-            throw new RuntimeException("Can't create posts for topic. " + e.getMessage());
+        catch (Exception ex)  {
+            throw new RuntimeException("Can't create posts for topic" , ex);
         }
     }
 
-    private boolean insertToPosts(DiscoursePost discoursePost, Connection connection) {
+    private void insertToPosts(List<DiscoursePost> discoursePosts, Connection connection) {
         try {
             PreparedStatement ps = connection.prepareStatement("INSERT INTO posts(id, user_id, topic_id," +
                     " post_number, raw, cooked, created_at, updated_at, last_version_at)" +
                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);");
-            //using auto ids
-            ps.setInt(1, discoursePost.getId());
-            ps.setInt(2, discoursePost.getUserId());
-            ps.setInt(3, discoursePost.getTopicId());
-            ps.setInt(4, discoursePost.getPostNumber());
-            ps.setString(5, discoursePost.getRaw());
-            ps.setString(6, discoursePost.getCooked());
-            ps.setObject(7, discoursePost.getCreatedAt());
-            ps.setObject(8, discoursePost.getUpdatedAt());
-            ps.setObject(9, discoursePost.getCreatedAt());
 
-            int i = ps.executeUpdate();
-            if(i == 1) {
-                return true;
+            for(DiscoursePost discoursePost : discoursePosts) {
+                ps.clearParameters();
+                ps.setInt(1, discoursePost.getId());
+                ps.setInt(2, discoursePost.getUserId());
+                ps.setInt(3, discoursePost.getTopicId());
+                ps.setInt(4, discoursePost.getPostNumber());
+                ps.setString(5, discoursePost.getRaw());
+                ps.setString(6, discoursePost.getCooked());
+                ps.setObject(7, discoursePost.getCreatedAt());
+                ps.setObject(8, discoursePost.getUpdatedAt());
+                ps.setObject(9, discoursePost.getCreatedAt());
+                ps.addBatch();
             }
+            ps.executeBatch();
         }
-        catch (SQLException e) {
-            throw new RuntimeException("Error inserting to 'posts' (id=" + discoursePost.getId() + "): " + e.getMessage());
+        catch (SQLException ex) {
+            throw new RuntimeException("Error inserting to 'posts'", ex);
         }
-        return false;
     }
 
-    private boolean insertToPostSearchData(DiscoursePost discoursePost, Connection connection) {
+    private void insertToPostSearchData(List<DiscoursePost> discoursePosts, Connection connection) {
         try {
             PreparedStatement ps = connection.prepareStatement("INSERT INTO post_search_data(post_id, " +
                     "search_data, raw_data, locale) VALUES (?, to_tsvector('russian', ?), ?, ?)");
 
-            ps.setInt(1, discoursePost.getId());
-            ps.setString(2, discoursePost.getRaw());
-            ps.setString(3, discoursePost.getRaw());
-            ps.setString(4, LOCALE);
-
-            int i = ps.executeUpdate();
-            if(i == 1) {
-                return true;
+            for(DiscoursePost discoursePost : discoursePosts) {
+                ps.clearParameters();
+                ps.setInt(1, discoursePost.getId());
+                ps.setString(2, discoursePost.getRaw());
+                ps.setString(3, discoursePost.getRaw());
+                ps.setString(4, LOCALE);
+                ps.addBatch();
             }
+            ps.executeBatch();
         }
-        catch (Exception e) {
-            throw new RuntimeException("Error inserting to 'post_search_data': " + e.getMessage());
+        catch (Exception ex) {
+            throw new RuntimeException("Error inserting to 'post_search_data'", ex);
         }
-        return false;
     }
 }

@@ -1,6 +1,8 @@
 package org.jtalks.jcommune.model.discourse;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DiscourseCategory {
     private int id;
@@ -23,6 +25,15 @@ public class DiscourseCategory {
         position = branch.getPosition();
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+    }
+
+    public static List<DiscourseCategory> getCategories(List<MigrationBranch> branches) {
+        List<DiscourseCategory> categories = new ArrayList<>();
+
+        for(MigrationBranch branch : branches) {
+            categories.add(new DiscourseCategory(branch));
+        }
+        return categories;
     }
 
     public int getId() {

@@ -6,6 +6,8 @@ import org.kefirsf.bb.BBProcessorFactory;
 import org.kefirsf.bb.TextProcessor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DiscoursePost {
 
@@ -17,6 +19,14 @@ public class DiscoursePost {
     private LocalDateTime updatedAt;
     private String raw;
     private String cooked;
+
+    public static List<DiscoursePost> getPosts(List<Post> jcommunePosts) {
+        List<DiscoursePost> posts = new ArrayList<>();
+        for(Post jcommunePost : jcommunePosts) {
+            posts.add(new DiscoursePost(jcommunePost));
+        }
+        return posts;
+    }
 
     public int getId() {
         return id;
@@ -88,7 +98,8 @@ public class DiscoursePost {
         this.topicId = (int)jcommunePost.getTopic().getId();
         this.createdAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommunePost.getCreationDate());
         this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommunePost.getModificationDate());
-        this.postNumber = jcommunePost.getPostIndexInTopic() + 1;
+        //this.postNumber = jcommunePost.getPostIndexInTopic() + 1;
+        this.postNumber = jcommunePost.getRating();
         this.cooked = getCookedText(jcommunePost.getPostContent());
         this.raw = getRawText(jcommunePost.getPostContent());
     }

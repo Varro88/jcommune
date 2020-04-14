@@ -3,6 +3,8 @@ package org.jtalks.jcommune.model.discourse;
 import org.jtalks.jcommune.model.entity.Topic;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class DiscourseTopic {
 
@@ -128,5 +130,13 @@ public class DiscourseTopic {
         categoryId = (int)topic.getBranch().getId();
         closed = topic.isClosed();
         this.lastPostUserId = (int)topic.getLastPost().getUserCreated().getId();
+    }
+
+    public static List<DiscourseTopic> getTopics(List<Topic> jcommuneTopics) {
+        List<DiscourseTopic> topics = new ArrayList<>();
+        for (Topic topic : jcommuneTopics) {
+            topics.add(new DiscourseTopic(topic));
+        }
+        return topics;
     }
 }

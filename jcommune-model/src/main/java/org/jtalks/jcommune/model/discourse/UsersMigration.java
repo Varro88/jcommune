@@ -20,8 +20,8 @@ public class UsersMigration {
     public static final int WEBSITE_CONTACT_ID = 17;
     private static final int TRUST_LEVEL_BASIC_ID = 1;
 
-    private Connection mysqlConnection;
-    private Connection postgresqlConnection;
+    private final Connection mysqlConnection;
+    private final Connection postgresqlConnection;
 
     public UsersMigration(Connection mysql, Connection postgres) {
         mysqlConnection = mysql;
@@ -41,9 +41,12 @@ public class UsersMigration {
             }
             String sql = "SELECT ID FROM USERS WHERE ID >= ? AND ID < ?";
             List<Integer> userIds = DiscourseMigration.getIds(sql, i, to);
+            if(userIds.size() == 0) {
+                continue;
+            }
 
             System.out.println("First user id in batch: " + userIds.get(0));
-            List<JCUser> users = getJcommuneUser(userIds);
+            List<JCUser> users = getJcommuneUsers(userIds);
 
             addUser(users);
         }
@@ -64,20 +67,24 @@ public class UsersMigration {
         return maxId;
     }
 
-    private List<JCUser> getJcommuneUser(List<Integer> id) {
+    private List<JCUser> getJcommuneUsers(List<Integer> ids) {
+        long currentUserId = -1;
+
         try {
+            String idsString  = ids.stream().map(String::valueOf).collect(Collectors.joining(","));
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT ID, USERNAME, EMAIL, ENABLED, LAST_LOGIN, ROLE, BAN_REASON, FIRST_NAME, LAST_NAME, " +
-                            "POST_COUNT, REGISTRATION_DATE, LOCATION, SEND_PM_NOTIFICATION, " +
-                            "VALUE " +
-                            "FROM USERS LEFT JOIN JC_USER_DETAILS " +
+                            "POST_COUNT, REGISTRATION_DATE, LOCATION, SEND_PM_NOTIFICATION, VALUE " +
+                            "FROM USERS " +
+                            "LEFT JOIN JC_USER_DETAILS " +
                             "ON USERS.ID = JC_USER_DETAILS.USER_ID " +
-                            "LEFT JOIN USER_CONTACT ON USERS.ID = USER_CONTACT.USER_ID " +
-                            "WHERE ID IN (?) AND (TYPE_ID = ? OR TYPE_ID IS NULL) " +
-                            "LIMIT 1");
+                            "LEFT JOIN (SELECT MAX(CONTACT_ID), USER_ID, ANY_VALUE(VALUE) AS VALUE FROM USER_CONTACT " +
+                            "WHERE USER_ID IN (" + idsString + ") AND (TYPE_ID = ? OR TYPE_ID IS NULL) GROUP BY(USER_ID)) c " +
+                            "ON USERS.ID = c.USER_ID " +
+                            "WHERE ID IN (" + idsString + ") " +
+                            "AND LAST_LOGIN IS NOT NULL AND REGISTRATION_DATE IS NOT NULL AND POST_COUNT IS NOT NULL;");
 
-            ps.setString(1, String.join(",", id.stream().map(i->String.valueOf(i)).collect(Collectors.toList())));
-            ps.setInt(2, WEBSITE_CONTACT_ID);
+            ps.setInt(1, WEBSITE_CONTACT_ID);
 
             ResultSet rs = ps.executeQuery();
 
@@ -89,6 +96,7 @@ public class UsersMigration {
 
                 //users
                 jcommuneUser.setId(rs.getLong("ID"));
+                currentUserId = jcommuneUser.getId();
                 jcommuneUser.setEmail(rs.getString("EMAIL"));
                 jcommuneUser.setEnabled(rs.getBoolean("ENABLED"));
                 String last_login = rs.getString("LAST_LOGIN");
@@ -107,9 +115,9 @@ public class UsersMigration {
                 jcommuneUser.setFirstName(rs.getString("FIRST_NAME"));
                 jcommuneUser.setLastName(rs.getString("LAST_NAME"));
 
-                //user_details
                 DateTime regDate = DateTime.parse(rs.getString("REGISTRATION_DATE"),
-                        DiscourseMigration.MYSQL_DATETIME_FORMAT);
+                            DiscourseMigration.MYSQL_DATETIME_FORMAT);
+
                 jcommuneUser.setRegistrationDate(regDate);
                 jcommuneUser.setLocation(rs.getString("LOCATION"));
                 jcommuneUser.setSendPmNotification(rs.getBoolean("SEND_PM_NOTIFICATION"));
@@ -128,34 +136,20 @@ public class UsersMigration {
             return users;
         }
         catch (Exception e)  {
-            throw new RuntimeException("Can't create jcommuneUser. " + e.getMessage(), e);
+            throw new RuntimeException("Can't create jcommuneUser id=" + currentUserId + e.getMessage(), e);
         }
     }
 
-    public boolean addUser(List<JCUser> jcommuneUsers){
-
+    public void addUser(List<JCUser> jcommuneUsers){
         List<DiscourseUser> users = DiscourseUser.getUsers(jcommuneUsers);
 
-        if(!insertToUsers(users, postgresqlConnection)) {
-            return false;
-        }
-
-        if(!insertToUserProfiles(users, postgresqlConnection)) {
-            return false;
-        }
-
-        if(!insertToUserOptions(users, postgresqlConnection)) {
-            return false;
-        }
-
-        if(!insertToUserStats(users, postgresqlConnection)) {
-            return false;
-        }
-
-        return true;
+        insertToUsers(users, postgresqlConnection);
+        insertToUserProfiles(users, postgresqlConnection);
+        insertToUserOptions(users, postgresqlConnection);
+        insertToUserStats(users, postgresqlConnection);
     }
 
-    private boolean insertToUsers(List<DiscourseUser> discourseUsers, Connection connection) {
+    private void insertToUsers(List<DiscourseUser> discourseUsers, Connection connection) {
         try {
             PreparedStatement ps = connection.prepareStatement("INSERT INTO users(ID, username, " +
                     "updated_at, email, active, last_seen_at, admin, previous_visit_at, first_seen_at, " +
@@ -180,15 +174,14 @@ public class UsersMigration {
                 ps.setString(13, discourseUser.getName());
                 ps.addBatch();
             }
-
             ps.executeBatch();
-        } catch (SQLException ex) {
-            throw new RuntimeException("Error inserting to 'users': " + ex.getMessage());
         }
-        return false;
+        catch (SQLException ex) {
+            throw new RuntimeException("Error inserting to 'users'", ex);
+        }
     }
 
-    private boolean insertToUserProfiles(List<DiscourseUser> discourseUsers, Connection connection) {
+    private void insertToUserProfiles(List<DiscourseUser> discourseUsers, Connection connection) {
         try {
             PreparedStatement ps = connection.prepareStatement("INSERT INTO user_profiles(user_id, " +
                     "location, website, bio_cooked_version)" +
@@ -206,13 +199,13 @@ public class UsersMigration {
             }
 
             ps.executeBatch();
-        } catch (SQLException ex) {
+        }
+        catch (SQLException ex) {
             throw new RuntimeException("Error inserting to 'user_profiles'", ex);
         }
-        return false;
     }
 
-    private boolean insertToUserOptions(List<DiscourseUser> discourseUsers, Connection connection) {
+    private void insertToUserOptions(List<DiscourseUser> discourseUsers, Connection connection) {
         try {
             PreparedStatement ps = connection.prepareStatement("INSERT INTO user_options(user_id, " +
                     "email_private_messages, email_digests, digest_after_minutes," +
@@ -238,13 +231,13 @@ public class UsersMigration {
             }
 
             ps.executeBatch();
-        } catch (SQLException ex) {
-            throw new RuntimeException("Error inserting to 'user_options'. "  + ex.getMessage());
         }
-        return false;
+        catch (SQLException ex) {
+            throw new RuntimeException("Error inserting to 'user_options'", ex);
+        }
     }
 
-    private boolean insertToUserStats(List<DiscourseUser> discourseUsers, Connection connection) {
+    private void insertToUserStats(List<DiscourseUser> discourseUsers, Connection connection) {
         try {
             PreparedStatement ps = connection.prepareStatement("INSERT INTO user_stats(user_id, " +
                     "topic_reply_count, new_since)" +
@@ -261,9 +254,9 @@ public class UsersMigration {
             }
 
             ps.executeBatch();
-        } catch (SQLException ex) {
+        }
+        catch (SQLException ex) {
             throw new RuntimeException("Error inserting to 'user_stats'", ex);
         }
-        return false;
     }
 }
