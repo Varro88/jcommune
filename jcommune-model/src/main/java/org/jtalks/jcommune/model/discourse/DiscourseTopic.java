@@ -139,4 +139,9 @@ public class DiscourseTopic {
         }
         return topics;
     }
+
+    @Override
+    public String toString() {
+        return String.format("[%1$s] '%2$s'; ", id, title);
+    }
 }

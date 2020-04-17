@@ -100,8 +100,8 @@ public class DiscoursePost {
         this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommunePost.getModificationDate());
         //this.postNumber = jcommunePost.getPostIndexInTopic() + 1;
         this.postNumber = jcommunePost.getRating();
-        this.cooked = getCookedText(jcommunePost.getPostContent());
-        this.raw = getRawText(jcommunePost.getPostContent());
+        this.cooked = getCookedText(jcommunePost.getPostContent().replace("\u0000", "?"));
+        this.raw = getRawText(jcommunePost.getPostContent().replace("\u0000", "?"));
     }
 
     public DiscoursePost(PostComment postComment) {

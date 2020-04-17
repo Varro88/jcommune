@@ -13,7 +13,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class UsersMigration {
 
@@ -39,14 +38,9 @@ public class UsersMigration {
             if(to > maxExistingUserId) {
                 to = maxExistingUserId;
             }
-            String sql = "SELECT ID FROM USERS WHERE ID >= ? AND ID < ?";
-            List<Integer> userIds = DiscourseMigration.getIds(sql, i, to);
-            if(userIds.size() == 0) {
-                continue;
-            }
 
-            System.out.println("First user id in batch: " + userIds.get(0));
-            List<JCUser> users = getJcommuneUsers(userIds);
+            System.out.println("First user id in batch: " + i);
+            List<JCUser> users = getJcommuneUsers(i, to);
 
             addUser(users);
         }
@@ -67,11 +61,10 @@ public class UsersMigration {
         return maxId;
     }
 
-    private List<JCUser> getJcommuneUsers(List<Integer> ids) {
+    private List<JCUser> getJcommuneUsers(int from, int to) {
         long currentUserId = -1;
 
         try {
-            String idsString  = ids.stream().map(String::valueOf).collect(Collectors.joining(","));
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT ID, USERNAME, EMAIL, ENABLED, LAST_LOGIN, ROLE, BAN_REASON, FIRST_NAME, LAST_NAME, " +
                             "POST_COUNT, REGISTRATION_DATE, LOCATION, SEND_PM_NOTIFICATION, VALUE " +
@@ -79,12 +72,16 @@ public class UsersMigration {
                             "LEFT JOIN JC_USER_DETAILS " +
                             "ON USERS.ID = JC_USER_DETAILS.USER_ID " +
                             "LEFT JOIN (SELECT MAX(CONTACT_ID), USER_ID, ANY_VALUE(VALUE) AS VALUE FROM USER_CONTACT " +
-                            "WHERE USER_ID IN (" + idsString + ") AND (TYPE_ID = ? OR TYPE_ID IS NULL) GROUP BY(USER_ID)) c " +
+                            "WHERE USER_ID >= ? AND USER_ID < ? AND (TYPE_ID = ? OR TYPE_ID IS NULL) GROUP BY(USER_ID)) c " +
                             "ON USERS.ID = c.USER_ID " +
-                            "WHERE ID IN (" + idsString + ") " +
+                            "WHERE ID >= ? AND ID < ? " +
                             "AND LAST_LOGIN IS NOT NULL AND REGISTRATION_DATE IS NOT NULL AND POST_COUNT IS NOT NULL;");
 
-            ps.setInt(1, WEBSITE_CONTACT_ID);
+            ps.setInt(1, from);
+            ps.setInt(2, to);
+            ps.setInt(3, WEBSITE_CONTACT_ID);
+            ps.setInt(4, from);
+            ps.setInt(5, to);
 
             ResultSet rs = ps.executeQuery();
 

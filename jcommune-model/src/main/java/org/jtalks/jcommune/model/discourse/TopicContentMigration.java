@@ -12,7 +12,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class TopicContentMigration {
     protected Connection mysqlConnection;
@@ -36,11 +35,8 @@ public class TopicContentMigration {
             if(to > lastTopicId) {
                 to = lastTopicId;
             }
-            String sql = "SELECT TOPIC_ID FROM TOPIC WHERE TOPIC_ID >= ? AND TOPIC_ID < ?";
-            List<Integer> topicIds = DiscourseMigration.getIds(sql, i, to);
-
-            System.out.println("First user id in batch: " + topicIds.get(0));
-            List<Post> posts = getAllPostsForTopics(topicIds);
+            System.out.println("First topic with content id in batch: " + i);
+            List<Post> posts = getAllPostsForTopics(i, to);
 
             addTopicsContent(posts);
         }
@@ -52,7 +48,7 @@ public class TopicContentMigration {
         insertToPostSearchData(discoursePosts, postgresqlConnection);
     }
 
-    private List<Post> getAllPostsForTopics(List<Integer> topicIds) {
+    private List<Post> getAllPostsForTopics(int from, int to) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT 0 as is_comment, POST.POST_ID as entity_id, POST.POST_ID as post_id, " +
@@ -61,7 +57,7 @@ public class TopicContentMigration {
                     "FROM POST " +
                     "INNER JOIN TOPIC " +
                     "ON POST.TOPIC_ID = TOPIC.TOPIC_ID " +
-                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID IN(?) " +
+                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID >= ? AND TOPIC.TOPIC_ID < ? " +
                     "UNION " +
                     "SELECT 1 as is_comment, POST_COMMENT.ID as entity_id, POST.POST_ID as post_id, " +
                     "TOPIC.TOPIC_ID as topic, AUTHOR_ID as author,  " +
@@ -71,11 +67,13 @@ public class TopicContentMigration {
                     "ON POST.POST_ID = POST_COMMENT.POST_ID " +
                     "INNER JOIN TOPIC  " +
                     "ON POST.TOPIC_ID = TOPIC.TOPIC_ID " +
-                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID IN(?) " +
+                    "WHERE TOPIC.TYPE != 'Code review' AND TOPIC.TOPIC_ID >= ? AND TOPIC.TOPIC_ID < ? " +
                     "ORDER BY topic, post_id, created_at");
 
-            ps.setString(1, topicIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
-            ps.setString(2, topicIds.stream().map(String::valueOf).collect(Collectors.joining(",")));
+            ps.setInt(1, from);
+            ps.setInt(2, to);
+            ps.setInt(3, from);
+            ps.setInt(4, to);
 
             ResultSet rs = ps.executeQuery();
 

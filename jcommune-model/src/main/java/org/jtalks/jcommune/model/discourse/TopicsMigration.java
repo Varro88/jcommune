@@ -13,7 +13,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class TopicsMigration {
 
@@ -36,11 +35,9 @@ public class TopicsMigration {
             if(to > lastTopicId) {
                 to = lastTopicId;
             }
-            String sql = "SELECT TOPIC_ID FROM TOPIC WHERE TOPIC_ID >= ? AND TOPIC_ID < ?";
-            List<Integer> topicIds = DiscourseMigration.getIds(sql, i, to);
 
-            System.out.println("First user id in batch: " + topicIds.get(0));
-            List<Topic> topics = getJcommuneTopics(topicIds);
+            System.out.println("First topic id in batch: " + i);
+            List<Topic> topics = getJcommuneTopics(i, to);
             addTopics(topics);
         }
     }
@@ -86,21 +83,34 @@ public class TopicsMigration {
         }
     }
 
-    private List<Topic> getJcommuneTopics(List<Integer> ids) {
+    private List<Topic> getJcommuneTopics(int from ,int to) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT TOPIC.TOPIC_ID, TITLE, CREATION_DATE, TOPIC_STARTER, BRANCH_ID, VIEWS, STICKED, " +
-                            "TOPIC.MODIFICATION_DATE, USER_CREATED as LAST_AUTHOR, COUNT(POST_ID) as POSTS_COUNT " +
+                            "TOPIC.MODIFICATION_DATE, USER_CREATED as LAST_AUTHOR, POSTS_COUNT " +
                             "FROM TOPIC " +
-                            "INNER JOIN POST " +
-                            "ON TOPIC.TOPIC_ID = POST.TOPIC_ID " +
-                            "WHERE TOPIC.TOPIC_ID IN (?) AND TOPIC.TYPE != 'Code review'" +
-                            "GROUP BY POST.TOPIC_ID, USER_CREATED " +
-                            "ORDER BY TOPIC.CREATION_DATE DESC " +
-                            "LIMIT 1");
+                            "INNER JOIN ( " +
+                            "SELECT author.TOPIC_ID, USER_CREATED, POSTS_COUNT FROM " +
+                            "( " +
+                            "SELECT p.TOPIC_ID, p.USER_CREATED " +
+                            "FROM post p " +
+                            "WHERE p.POST_DATE = (SELECT MAX(p2.POST_DATE) FROM post p2 WHERE p.TOPIC_ID = p2.TOPIC_ID) " +
+                            "AND TOPIC_ID >= ? AND TOPIC_ID < ? ORDER BY TOPIC_ID " +
+                            ") author " +
+                            "INNER JOIN " +
+                            "(SELECT TOPIC_ID, COUNT(TOPIC_ID) AS POSTS_COUNT FROM POST " +
+                            "WHERE TOPIC_ID >= ? AND TOPIC_ID < ? GROUP BY TOPIC_ID) counter " +
+                            "ON author.TOPIC_ID = counter.TOPIC_ID " +
+                            ") temp " +
+                            "ON TOPIC.TOPIC_ID = temp.TOPIC_ID " +
+                            "WHERE TOPIC.TOPIC_ID >= ? AND TOPIC.TOPIC_ID < ? AND TOPIC.TYPE != 'Code review';");
 
-            ps.setString(1, ids.stream().map(String::valueOf).collect(Collectors.joining(",")));
-
+            ps.setInt(1, from);
+            ps.setInt(2, to);
+            ps.setInt(3, from);
+            ps.setInt(4, to);
+            ps.setInt(5, from);
+            ps.setInt(6, to);
             ResultSet rs = ps.executeQuery();
 
             List<Topic> topics = new ArrayList<>();
@@ -140,7 +150,6 @@ public class TopicsMigration {
 
                 topics.add(jcommuneTopic);
             }
-
             return topics;
         }
         catch (Exception ex) {

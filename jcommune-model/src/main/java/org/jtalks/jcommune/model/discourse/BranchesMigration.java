@@ -8,7 +8,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class BranchesMigration {
 
@@ -31,17 +30,15 @@ public class BranchesMigration {
             if(to > lastBranchId) {
                 to = lastBranchId;
             }
-            String sql = "SELECT BRANCH_ID FROM BRANCHES WHERE BRANCH_ID >= ? AND BRANCH_ID < ? AND LAST_POST IS NOT NULL";
-            List<Integer> branchesIds = DiscourseMigration.getIds(sql, i, to);
 
-            System.out.println("First branch id in batch: " + branchesIds.get(0));
-            List<MigrationBranch> branches = getJcommuneBranches(branchesIds);
+            System.out.println("First branch id in batch: " + i);
+            List<MigrationBranch> branches = getJcommuneBranches(i, to);
 
             addBranches(branches);
         }
     }
 
-    private List<MigrationBranch> getJcommuneBranches(List<Integer> ids) {
+    private List<MigrationBranch> getJcommuneBranches(int from, int to) {
         try {
             PreparedStatement ps = mysqlConnection.prepareStatement(
                     "SELECT BRANCHES.BRANCH_ID, NAME, DESCRIPTION, POSITION, LAST_POST, POST.TOPIC_ID, COUNT(*) AS count " +
@@ -50,10 +47,11 @@ public class BranchesMigration {
                             "ON BRANCHES.LAST_POST = POST.POST_ID " +
                             "LEFT JOIN TOPIC " +
                             "ON TOPIC.BRANCH_ID = BRANCHES.BRANCH_ID " +
-                            "WHERE BRANCHES.BRANCH_ID IN (?) " +
+                            "WHERE BRANCHES.BRANCH_ID >= ? AND BRANCHES.BRANCH_ID < ? " +
                             "GROUP BY BRANCHES.BRANCH_ID, NAME, DESCRIPTION, POSITION, LAST_POST, POST.TOPIC_ID");
-            ps.setString(1, ids.stream().map(String::valueOf).collect(Collectors.joining(",")));
 
+            ps.setInt(1, from);
+            ps.setInt(2, to);
             ResultSet rs = ps.executeQuery();
 
             List<MigrationBranch> branches = new ArrayList<>();

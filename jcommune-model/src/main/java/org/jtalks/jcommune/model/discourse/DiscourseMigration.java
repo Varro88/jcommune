@@ -16,15 +16,12 @@ package org.jtalks.jcommune.model.discourse;
 
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Data migration for discourse engine.
@@ -46,46 +43,30 @@ public final class DiscourseMigration {
         if(System.getProperty("firstUserId") != null && System.getProperty("usersPerRequest") != null) {
             int firstUserId = Integer.parseInt(System.getProperty("firstUserId"));
             int usersPerRequest = Integer.parseInt(System.getProperty("usersPerRequest"));
-            startUsersMigration(firstUserId, usersPerRequest);
+            UsersMigration usersMigration = new UsersMigration(mysqlConnection, postgresqlConnection);
+            usersMigration.startUsersMigration(firstUserId, usersPerRequest);
         }
 
-        /*if(System.getProperty("firstCategoryId") != null && System.getProperty("categoriesPerRequest") != null) {
+        if(System.getProperty("firstCategoryId") != null && System.getProperty("categoriesPerRequest") != null) {
             int firstCategoryId = Integer.parseInt(System.getProperty("firstCategoryId"));
             int categoriesPerRequest = Integer.parseInt(System.getProperty("categoriesPerRequest"));
-            startCategoriesMigration(firstCategoryId, categoriesPerRequest);
+            BranchesMigration branchesMigration = new BranchesMigration(mysqlConnection, postgresqlConnection);
+            branchesMigration.startBranchesMigration(firstCategoryId, categoriesPerRequest);
         }
 
         if(System.getProperty("firstTopicId") != null && System.getProperty("topicsPerRequest") != null) {
             int firstTopicId = Integer.parseInt(System.getProperty("firstTopicId"));
             int topicsPerRequest = Integer.parseInt(System.getProperty("topicsPerRequest"));
-            startTopicsMigration(firstTopicId, topicsPerRequest);
+            TopicsMigration topicsMigration = new TopicsMigration(mysqlConnection, postgresqlConnection);
+            topicsMigration.startTopicsMigration(firstTopicId, topicsPerRequest);
         }
 
         if(System.getProperty("firstTopicWithContentId") != null && System.getProperty("topicsWithContentPerRequest") != null) {
             int firstTopicWithContentId = Integer.parseInt(System.getProperty("firstTopicWithContentId"));
             int topicsWithContentPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
-            startTopicsContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
-        }*/
-    }
-
-    public static void startUsersMigration(int firstUserId, int usersPerRequest) {
-        UsersMigration usersMigration = new UsersMigration(mysqlConnection, postgresqlConnection);
-        usersMigration.startUsersMigration(firstUserId, usersPerRequest);
-    }
-
-    public static void startCategoriesMigration(int firstCategoryId, int categoriesPerRequest) {
-        BranchesMigration branchesMigration = new BranchesMigration(mysqlConnection, postgresqlConnection);
-        branchesMigration.startBranchesMigration(firstCategoryId, categoriesPerRequest);
-    }
-
-    public static void startTopicsMigration(int firstTopicId, int topicsPerRequest) {
-        TopicsMigration topicsMigration = new TopicsMigration(mysqlConnection, postgresqlConnection);
-        topicsMigration.startTopicsMigration(firstTopicId, topicsPerRequest);
-    }
-
-    public static void startTopicsContentMigration(int firstTopicWithContentId, int topicsWithContentPerRequest) {
-        TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
-        topicContentMigration.startTopicContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
+            TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
+            topicContentMigration.startTopicContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
+        }
     }
 
     public static java.time.LocalDateTime jodaToJavaLocalDateTime( DateTime dateTime ) {
@@ -97,23 +78,6 @@ public final class DiscourseMigration {
                 utcDateTime.getHourOfDay(),
                 utcDateTime.getMinuteOfHour(),
                 utcDateTime.getSecondOfMinute());
-    }
-
-    public static List<Integer> getIds(String sql, int from, int to) {
-        try {
-            PreparedStatement ps = mysqlConnection.prepareStatement(sql);
-            ps.setInt(1, from);
-            ps.setInt(2, to);
-            ResultSet rs = ps.executeQuery();
-            List<Integer> ids = new ArrayList<Integer>();
-            while (rs.next())
-                ids.add(rs.getInt(1));
-            return ids;
-        }
-        catch (Exception e) {
-            throw new RuntimeException("Can't get list of ids " +
-                    "(from=" + String.valueOf(from) + ", to=" + String.valueOf(to) + "): " + e.getMessage());
-        }
     }
 
     public static int getLastTopicId() {
