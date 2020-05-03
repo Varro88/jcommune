@@ -217,7 +217,7 @@ public class UsersMigration {
                 ps.setBoolean(2, discourseUser.getEmailPrivateMessages());
 
                 //same as for default user
-                ps.setBoolean(3, true);
+                ps.setBoolean(3, false);
                 ps.setInt(4, 10800);
                 ps.setInt(5, 240000);
                 ps.setInt(6, 2880);

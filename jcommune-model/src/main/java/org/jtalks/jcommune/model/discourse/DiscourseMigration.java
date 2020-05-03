@@ -22,6 +22,9 @@ import org.joda.time.format.DateTimeFormatter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Data migration for discourse engine.
@@ -66,6 +69,51 @@ public final class DiscourseMigration {
             int topicsWithContentPerRequest = Integer.parseInt(System.getProperty("topicsWithContentPerRequest"));
             TopicContentMigration topicContentMigration = new TopicContentMigration(mysqlConnection, postgresqlConnection);
             topicContentMigration.startTopicContentMigration(firstTopicWithContentId, topicsWithContentPerRequest);
+        }
+
+        updateLinksAndSequences();
+    }
+
+    private static void updateLinksAndSequences() {
+        List<String> tablesToUpdateSequences = Arrays.asList("users", "categories", "topics", "posts");
+        for (String table : tablesToUpdateSequences) {
+            String sql = "do $$\n" +
+                    "declare maxid int;\n" +
+                    "begin\n" +
+                    "select max(id)+1 from " + table + " into maxid;\n" +
+                    "execute 'alter SEQUENCE public." + table + "_id_seq RESTART with '|| maxid;\n" +
+                    "end;\n" +
+                    "$$";
+            System.out.println("Updating sequence for table: " + table);
+            performSqlRequestToPostgres(sql);
+        }
+
+        List<String> sourceInternalLinks = Arrays.asList("javatalks.ru/topics/",
+                "javatalks.ru/posts/",
+                "javatalks.ru/branches/",
+                "javatalks.ru/topics/\\d+\\?page=\\d+#");
+
+        List<String> targetInternalLinks = Arrays.asList("javatalks.ru/t/",
+                "javatalks.ru/p/",
+                "javatalks.ru/c/",
+                "javatalks.ru/p/");
+
+        for (int i = 0; i < sourceInternalLinks.size(); i++) {
+            String sql = "update posts set cooked = regexp_replace(cooked, '" + sourceInternalLinks.get(i) +
+                    "', '" + targetInternalLinks.get(i) + "');";
+            System.out.println("Updating links for: " + sourceInternalLinks.get(i));
+            performSqlRequestToPostgres(sql);
+        }
+    }
+
+    private static void performSqlRequestToPostgres(String sql) {
+        try {
+            PreparedStatement ps = postgresqlConnection.prepareStatement(sql);
+            int result = ps.executeUpdate();
+            System.out.println("Updated records: " + result);
+        }
+        catch (SQLException ex) {
+            throw new RuntimeException("Error when executing sql: ", ex);
         }
     }
 

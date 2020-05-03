@@ -189,8 +189,8 @@ public class DiscourseUser {
             this.username = jcommuneUser.getUsername();
         }
 
-        //this.email = jcommuneUser.getEmail();
-        this.email = jcommuneUser.getId() + "@jcommune-mail.org";
+        //this.email = jcommuneUser.getId() + "@jcommune-mail.org";
+        this.email = jcommuneUser.getEmail();
 
         this.updatedAt = DiscourseMigration.jodaToJavaLocalDateTime(jcommuneUser.getRegistrationDate());
         this.active = jcommuneUser.isEnabled();
